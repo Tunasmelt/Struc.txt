@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="./tokens.js"></script>
+<script src="./seed.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  html,body{height:100%}
+  body{margin:0;background:var(--chrome);color:var(--chalk);font-family:var(--font-body);font-size:15px;-webkit-font-smoothing:antialiased;overflow:hidden}
+  *{box-sizing:border-box}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;background:none;border:none}
+  a{color:var(--brass-text);text-decoration:none}
+  a:hover{color:var(--brass-text);text-decoration:underline}
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+  input::placeholder,textarea::placeholder{color:var(--muted)}
+  @keyframes nf-pulse{50%{box-shadow:0 0 0 16px rgba(180,67,47,0)}}
+  @keyframes nf-bounce{50%{height:100%}}
+  @keyframes nf-spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+
+<div style="display:grid;grid-template-columns:236px 1fr;grid-template-rows:auto 1fr;height:100vh;font-family:var(--font-body)">
+
+  <div style="grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 18px;height:60px;background:var(--chrome);border-bottom:1px solid var(--chrome-line);flex-wrap:nowrap">
+    <div style="display:flex;align-items:center;gap:9px;padding-right:16px;border-right:1px solid var(--chrome-line);height:100%;flex:none">
+      <span style="display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--card-line);border-radius:7px;background:var(--card-bg);flex:none">
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3 3.5h6.5M3 7h10M3 10.5h5" stroke="var(--ink-2)" stroke-width="1.6" stroke-linecap="round"></path>
+          <rect x="10.5" y="9.2" width="2.6" height="3.6" rx="0.5" fill="var(--brass)"></rect>
+        </svg>
+      </span>
+      <b style="font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-.03em">Struc<i style="font-style:normal;font-family:var(--font-mono);font-weight:600;font-size:16px;color:var(--brass-text)">.txt</i></b>
+      <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--chalk-dim)">board</span>
+    </div>
+
+    <div style="position:relative;flex:1;min-width:120px;max-width:300px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.5"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+      <input type="search" placeholder="Search notes" value="{{ query }}" onChange="{{ onQuery }}" style="width:100%;background:var(--chrome-2);border:1px solid var(--chrome-line);border-radius:8px;padding:9px 12px 9px 34px;color:var(--chalk)">
+    </div>
+
+    <div style="display:flex;gap:6px;align-items:center;flex:none">
+      <div role="group" aria-label="Appearance" style="display:flex;border:1px solid var(--chrome-line);border-radius:8px;overflow:hidden;flex:none">
+        <button onClick="{{ onLight }}" style="{{ lightStyle }}">Light</button>
+        <button onClick="{{ onDark }}" style="{{ darkStyle }}">Dark</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--chalk-dim);white-space:nowrap">
+        <input type="checkbox" checked="{{ snapGrid }}" onChange="{{ onSnap }}" style="accent-color:var(--brass)"> Snap
+      </label>
+      <div style="width:1px;height:26px;background:var(--chrome-line);flex:none"></div>
+      <button onClick="{{ onStack }}" style="{{ stackBtnStyle }}">{{ stackLabel }}</button>
+      <button onClick="{{ onArrange }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Auto-arrange</button>
+      <sc-if value="{{ hasSnapshot }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onRestore }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Restore</button>
+      </sc-if>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <button onClick="{{ onToggleHelp }}" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" style="{{ helpBtnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">?</button>
+    <div data-nf="exportwrap" style="position:relative;flex:none">
+      <button onClick="{{ onToggleExport }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Export ▾</button>
+      <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:calc(100% + 6px);right:0;z-index:80;min-width:190px;background:var(--chrome-2);border:1px solid var(--chrome-line);border-radius:10px;box-shadow:var(--shadow-menu);padding:5px">
+          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding:7px 10px 3px">Export visible notes</div>
+          <sc-for list="{{ exportItems }}" as="x" hint-placeholder-count="4">
+            <button onClick="{{ x.go }}" style="display:flex;width:100%;align-items:center;gap:9px;padding:8px 10px;font-size:13px;border-radius:6px;text-align:left;color:var(--chalk)" style-hover="background:var(--hover)">{{ x.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+    <button onClick="{{ onOpenCapture }}" style="border:1px solid var(--brass);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px;background:var(--brass);color:var(--brass-ink);transition:var(--t-btn);white-space:nowrap;flex:none" style-hover="background:var(--brass-hi);border-color:var(--brass-hi)">New capture</button>
+  </div>
+
+  <aside style="background:var(--chrome);border-right:1px solid var(--chrome-line);padding:16px 12px;overflow-y:auto">
+    <h4 style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin:0 0 8px 6px">Templates</h4>
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <sc-for list="{{ railTemplates }}" as="r" hint-placeholder-count="8">
+        <button onClick="{{ r.go }}" style="{{ r.style }}">
+          <span style="{{ r.dotStyle }}"></span>{{ r.name }}<span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)">{{ r.count }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <h4 style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px 6px">View</h4>
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <sc-for list="{{ viewFilters }}" as="v" hint-placeholder-count="2">
+        <button onClick="{{ v.go }}" style="{{ v.style }}">{{ v.name }}<span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)">{{ v.count }}</span></button>
+      </sc-for>
+    </div>
+
+    <h4 style="font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px 6px">Open action items</h4>
+    <div>
+      <sc-for list="{{ todos }}" as="a" hint-placeholder-count="6">
+        <label style="{{ a.style }}">
+          <input type="checkbox" checked="{{ a.done }}" onChange="{{ a.toggle }}" style="margin-top:2px;accent-color:var(--brass)">
+          <span>{{ a.text }}<em style="display:block;font-style:normal;font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.04em">{{ a.sub }}</em></span>
+        </label>
+      </sc-for>
+    </div>
+  </aside>
+
+  <main style="position:relative;overflow:auto;background:var(--felt);transition:var(--t-surface)">
+    <div style="{{ gridBgStyle }}"></div>
+
+    <div style="position:sticky;top:0;z-index:6;display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:12px 20px;background:var(--felt)">
+      <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--board-lbl);margin-right:2px">Filter</span>
+      <sc-for list="{{ rangeChips }}" as="c" hint-placeholder-count="2">
+        <button onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+      <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--board-lbl);margin-left:10px;margin-right:2px">Tags</span>
+      <sc-for list="{{ tagChips }}" as="c" hint-placeholder-count="6">
+        <button onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+      <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--board-lbl);margin-left:10px;margin-right:2px">Arrange by</span>
+      <sc-for list="{{ sortOptions }}" as="o" hint-placeholder-count="3">
+        <button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button>
+      </sc-for>
+      <span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--board-lbl)">{{ countLabel }}</span>
+    </div>
+
+    <div data-nf="board" style="position:relative;min-height:1200px;min-width:1180px;padding:4px 20px 80px;z-index:1">
+      <sc-for list="{{ notes }}" as="n" hint-placeholder-count="7">
+        <article data-note="{{ n.id }}" tabindex="0" role="button" style="{{ n.style }}"
+                 onPointerDown="{{ n.onDown }}" onMouseEnter="{{ n.onEnter }}" onMouseLeave="{{ n.onLeave }}"
+                 onContextMenu="{{ n.onCtx }}" onKeyDown="{{ n.onKey }}">
+
+          <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-2);gap:6px">
+            <span style="display:flex;gap:7px;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+              <span style="{{ n.dotStyle }}"></span>{{ n.metaLine }}
+            </span>
+            <span style="display:flex;gap:4px;align-items:center;flex:none">
+              <sc-if value="{{ n.pinned }}" hint-placeholder-val="{{ false }}">
+                <span title="Pinned — ignored by stack and auto-arrange" style="font-size:9px;letter-spacing:.1em;color:var(--brass-text);border:1px solid var(--brass);border-radius:99px;padding:1px 6px">PIN</span>
+              </sc-if>
+              <button data-act="collapse" onClick="{{ n.onCollapse }}" aria-label="{{ n.collapseLabel }}" title="{{ n.collapseLabel }}" style="{{ n.collapseBtnStyle }}">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </button>
+            </span>
+          </div>
+
+          <h3 style="{{ n.titleStyle }}">{{ n.title }}</h3>
+
+          <sc-if value="{{ n.showBody }}" hint-placeholder-val="{{ true }}">
+            <div style="height:1px;background:var(--card-rule);margin:0 -16px 12px"></div>
+          </sc-if>
+
+          <sc-if value="{{ n.showBody }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-for list="{{ n.fields }}" as="f" hint-placeholder-count="3">
+                <div style="margin-bottom:10px">
+                  <span style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:3px">{{ f.k }}</span>
+                  <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                    <div style="{{ f.textStyle }}">{{ f.text }}</div>
+                  </sc-if>
+                  <sc-if value="{{ f.isPeople }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px">
+                      <sc-for list="{{ f.people }}" as="p" hint-placeholder-count="3">
+                        <i style="font-style:normal;font-size:11px;background:var(--card-chip);border:1px solid var(--card-line);padding:2px 8px;border-radius:99px">{{ p }}</i>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.isChecks }}" hint-placeholder-val="{{ false }}">
+                    <div>
+                      <sc-for list="{{ f.checks }}" as="c" hint-placeholder-count="2">
+                        <div style="display:flex;gap:7px;font-size:12.6px;line-height:1.35;margin-bottom:5px">
+                          <s style="{{ c.boxStyle }}"></s><span style="{{ c.textStyle }}">{{ c.t }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.isOutline }}" hint-placeholder-val="{{ false }}">
+                    <ul style="font-size:12.6px;line-height:1.5;padding-left:14px;margin:0">
+                      <sc-for list="{{ f.outline }}" as="l" hint-placeholder-count="3">
+                        <li>{{ l }}</li>
+                      </sc-for>
+                    </ul>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ n.showBody }}" hint-placeholder-val="{{ true }}">
+            <footer style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--card-rule)">
+              <sc-for list="{{ n.chips }}" as="t" hint-placeholder-count="3">
+                <span style="{{ t.style }}" title="{{ t.title }}">{{ t.label }}</span>
+              </sc-for>
+              <sc-if value="{{ n.openCount }}" hint-placeholder-val="{{ false }}">
+                <span style="margin-left:auto;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-2)">{{ n.openLabel }}</span>
+              </sc-if>
+            </footer>
+          </sc-if>
+
+          <sc-if value="{{ n.showBody }}" hint-placeholder-val="{{ true }}">
+            <span data-act="resize" title="Drag to resize" onPointerDown="{{ n.onResize }}" style="{{ n.handleStyle }}">
+              <svg width="14" height="14" viewBox="0 0 14 14" style="display:block"><path d="M12.5 5.5L5.5 12.5M12.5 9.5L9.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>
+            </span>
+          </sc-if>
+        </article>
+      </sc-for>
+
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:0;right:0;top:60px;text-align:center;color:var(--board-lbl);z-index:1">
+          <p style="font-family:var(--font-mono);font-size:12px;letter-spacing:.05em">{{ emptyLine1 }}</p>
+          <p style="font-family:var(--font-mono);font-size:12px;letter-spacing:.05em;opacity:.7">{{ emptyLine2 }}</p>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+
+<aside style="{{ drawerStyle }}">
+  <header style="padding:16px 18px;border-bottom:1px solid var(--chrome-line);position:relative">
+    <div style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--chalk-dim)">
+      <span style="{{ drawer.dotStyle }}"></span><span>{{ drawer.tmpl }}</span><span>{{ drawer.date }}</span>
+    </div>
+    <h2 style="font-family:var(--font-display);font-weight:700;font-size:22px;letter-spacing:-.025em;margin:10px 0 0;line-height:1.15">{{ drawer.title }}</h2>
+    <button onClick="{{ onCloseDrawer }}" aria-label="Close note" style="position:absolute;top:14px;right:14px;font-size:20px;line-height:1;color:var(--chalk-dim);padding:4px 8px">×</button>
+  </header>
+  <div style="display:flex;gap:8px;margin:12px 18px 0;flex-wrap:wrap">
+    <button onClick="{{ onDrawerImage }}" title="Export this note as an image" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Export image</button>
+    <button onClick="{{ onDrawerDup }}" title="Duplicate this note" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Duplicate</button>
+    <button onClick="{{ onDrawerPin }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">{{ drawer.pinLabel }}</button>
+    <button onClick="{{ onDrawerArchive }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">{{ drawer.archiveLabel }}</button>
+  </div>
+  <div role="group" aria-label="Version" style="display:flex;margin:14px 18px 0;border:1px solid var(--chrome-line);border-radius:8px;overflow:hidden;width:max-content">
+    <button onClick="{{ onShowStruct }}" style="{{ drawer.structStyle }}">Structured</button>
+    <button onClick="{{ onShowRaw }}" style="{{ drawer.rawStyle }}">Raw capture</button>
+  </div>
+  <div style="padding:16px 18px 30px;overflow-y:auto;flex:1">
+    <sc-if value="{{ drawer.showRaw }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">{{ drawer.rawStamp }}</div>
+        <div style="font-family:var(--font-mono);font-size:12.5px;line-height:1.7;color:var(--chalk-dim);white-space:pre-wrap;background:var(--well);border:1px solid var(--chrome-line);padding:14px;border-radius:8px">{{ drawer.raw }}</div>
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--chrome-line)">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.05em">This is what you gave it. Nothing here is ever overwritten.</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ drawer.showStruct }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <sc-for list="{{ drawer.fields }}" as="f" hint-placeholder-count="3">
+          <div style="margin-bottom:16px">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--brass-text);display:block;margin-bottom:5px">{{ f.k }}</span>
+            <div style="line-height:1.55;color:var(--drawer-fg);font-size:14px">
+              <sc-for list="{{ f.lines }}" as="l" hint-placeholder-count="2">
+                <div>{{ l }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+
+        <div style="margin-bottom:16px">
+          <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--brass-text);display:block;margin-bottom:5px">Tags</span>
+          <div style="line-height:1.55;color:var(--drawer-fg);font-size:14px">{{ drawer.tagLine }}</div>
+        </div>
+
+        <sc-if value="{{ drawer.hasActions }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-bottom:16px">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--brass-text);display:block;margin-bottom:5px">Action items</span>
+            <sc-for list="{{ drawer.actions }}" as="a" hint-placeholder-count="2">
+              <label style="display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:14px">
+                <input type="checkbox" checked="{{ a.done }}" onChange="{{ a.toggle }}" style="accent-color:var(--brass);margin-top:3px">
+                <span>{{ a.text }}<span style="color:var(--muted);font-size:12px">{{ a.due }}</span></span>
+              </label>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--chrome-line);flex-wrap:wrap">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.05em">Re-run as</span>
+          <select value="{{ drawer.rerunKey }}" onChange="{{ onRerunPick }}" style="background:var(--chrome);border:1px solid var(--chrome-line);padding:7px 9px;border-radius:8px;color:var(--chalk)">
+            <sc-for list="{{ templateOptions }}" as="t" hint-placeholder-count="7">
+              <option value="{{ t.key }}">{{ t.name }}</option>
+            </sc-for>
+          </select>
+          <button onClick="{{ onRerun }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">{{ drawer.rerunLabel }}</button>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.05em;width:100%">Keeps every earlier version. Nothing is lost by trying another shape.</span>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</aside>
+
+<div style="{{ scrimStyle }}" onClick="{{ onScrimClick }}">
+  <div role="dialog" aria-modal="true" style="width:min(620px,100%);background:var(--chrome-2);border:1px solid var(--chrome-line);border-radius:12px;margin-top:6vh" onClick="{{ stop }}">
+    <header style="padding:18px 20px;border-bottom:1px solid var(--chrome-line);display:flex;align-items:center;justify-content:space-between">
+      <h2 style="font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.02em;margin:0">New capture</h2>
+      <button onClick="{{ onCloseCapture }}" aria-label="Close" style="font-size:20px;line-height:1;color:var(--chalk-dim);padding:4px 8px">×</button>
+    </header>
+    <div style="padding:20px">
+      <div role="group" aria-label="Capture method" style="display:flex;gap:6px;margin-bottom:14px">
+        <button onClick="{{ onModeRec }}" style="{{ capture.recTabStyle }}">Record</button>
+        <button onClick="{{ onModePaste }}" style="{{ capture.pasteTabStyle }}">Paste</button>
+      </div>
+
+      <sc-if value="{{ capture.isRec }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;place-items:center;gap:14px;padding:26px 0;border:1px dashed var(--chrome-line);border-radius:10px;background:var(--well)">
+          <button onClick="{{ onToggleRec }}" aria-label="Start recording" style="{{ capture.recBtnStyle }}"></button>
+          <div style="display:flex;gap:3px;height:26px;align-items:flex-end">
+            <sc-for list="{{ capture.bars }}" as="b" hint-placeholder-count="18">
+              <i style="{{ b.style }}"></i>
+            </sc-for>
+          </div>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.05em">{{ capture.hint }}</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ capture.isPaste }}" hint-placeholder-val="{{ false }}">
+        <textarea value="{{ capture.raw }}" onChange="{{ onRawInput }}" placeholder="Paste your rough notes here. Fragments, shorthand, and half-sentences are fine — that's what the restructuring step is for." style="width:100%;min-height:150px;background:var(--well);border:1px solid var(--chrome-line);border-radius:10px;padding:13px;resize:vertical;font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--chalk)"></textarea>
+      </sc-if>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px">
+        <sc-for list="{{ capture.picks }}" as="p" hint-placeholder-count="8">
+          <button onClick="{{ p.go }}" style="{{ p.style }}"><span style="{{ p.dotStyle }}"></span>{{ p.name }}</button>
+        </sc-for>
+      </div>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.05em">Pick a template now, or skip it and choose after the capture — you can re-run with a different one any time.</span>
+    </div>
+    <footer style="padding:16px 20px;border-top:1px solid var(--chrome-line);display:flex;gap:10px;align-items:center;justify-content:flex-end">
+      <sc-if value="{{ capture.working }}" hint-placeholder-val="{{ false }}">
+        <span style="display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:12px;color:var(--brass-text);letter-spacing:.06em;margin-right:auto">
+          <span style="width:12px;height:12px;border:2px solid rgba(201,162,39,.3);border-top-color:var(--brass);border-radius:50%;animation:nf-spin .7s linear infinite"></span>{{ capture.working }}
+        </span>
+      </sc-if>
+      <sc-if value="{{ capture.idle }}" hint-placeholder-val="{{ true }}">
+        <span style="margin-right:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--muted);letter-spacing:.05em">Gemini for restructuring · falls back to Groq on rate limit</span>
+      </sc-if>
+      <sc-if value="{{ capture.idle }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ onCloseCapture }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Cancel</button>
+      </sc-if>
+      <sc-if value="{{ capture.idle }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ onRestructure }}" style="border:1px solid var(--brass);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px;background:var(--brass);color:var(--brass-ink);transition:var(--t-btn)" style-hover="background:var(--brass-hi);border-color:var(--brass-hi)">Restructure</button>
+      </sc-if>
+    </footer>
+  </div>
+</div>
+
+<sc-if value="{{ ctx.open }}" hint-placeholder-val="{{ false }}">
+  <div data-nf="ctx" style="{{ ctx.style }}">
+    <sc-for list="{{ ctx.items }}" as="i" hint-placeholder-count="7">
+      <button onClick="{{ i.go }}" style="{{ i.style }}" style-hover="{{ i.hover }}">
+        <span>{{ i.label }}</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--muted)">{{ i.key }}</span>
+      </button>
+    </sc-for>
+  </div>
+</sc-if>
+
+<sc-if value="{{ helpOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(8,7,6,.6);z-index:97;display:grid;place-items:center;padding:24px" onClick="{{ onToggleHelp }}">
+    <div style="width:min(460px,100%);background:var(--chrome-2);border:1px solid var(--chrome-line);border-radius:12px;padding:20px" onClick="{{ stop }}">
+      <h2 style="font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 4px">Keyboard shortcuts</h2>
+      <p style="font-size:12.5px;color:var(--chalk-dim);margin:0 0 16px">Acts on the card under your cursor, or the focused card.</p>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <sc-for list="{{ helpRows }}" as="h" hint-placeholder-count="9">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13.5px">
+            <span>{{ h.label }}</span>
+            <kbd style="margin-left:auto;font-family:var(--font-mono);font-size:11px;background:var(--well);border:1px solid var(--chrome-line);border-radius:5px;padding:3px 8px;color:var(--chalk-dim)">{{ h.key }}</kbd>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ confirm.open }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(8,7,6,.72);z-index:96;display:grid;place-items:center;padding:24px">
+    <div style="width:min(400px,100%);background:var(--chrome-2);border:1px solid var(--chrome-line);border-radius:12px;padding:20px">
+      <h2 style="font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-.02em;margin:0 0 8px">Delete this note?</h2>
+      <p style="font-size:13.5px;line-height:1.5;color:var(--chalk-dim);margin:0 0 18px">{{ confirm.body }}</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onClick="{{ onCancelDelete }}" style="{{ btnStyle }}" style-hover="background:var(--hover-btn);border-color:var(--border-hover)">Keep it</button>
+        <button onClick="{{ onConfirmDelete }}" style="border:1px solid var(--danger);border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px;background:var(--danger-bg);color:var(--danger-fg);transition:var(--t-btn)" style-hover="background:var(--danger);color:#fff">Delete note</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<div style="{{ toastStyle }}">
+  <span>{{ toastMsg }}</span>
+  <sc-if value="{{ toastAction }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ onToastUndo }}" style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass-text);font-weight:600">Undo</button>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;appearance&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;Board&quot;},&quot;snapToGrid&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Board&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const T = window.NF_TOKENS;
+    const seed = window.NF_SEED;
+    const saved = this.load();
+    let zTop = 10;
+    const notes = seed.notes.map(n => {
+      const s = saved.layout && saved.layout[n.id];
+      const base = Object.assign({}, n, { z: ++zTop, pinned: false, archived: false });
+      if (s) {
+        ["x", "y", "w", "z"].forEach(k => { if (typeof s[k] === "number") base[k] = s[k]; });
+        ["collapsed", "pinned", "archived"].forEach(k => { if (typeof s[k] === "boolean") base[k] = s[k]; });
+      }
+      return base;
+    });
+    notes.forEach(n => { if (n.z > zTop) zTop = n.z; });
+    this.zTop = zTop;
+    this.state = {
+      notes: notes,
+      appearance: saved.appearance || this.props.appearance || "light",
+      filterTmpl: null, filterTag: null, filterRange: null, query: "",
+      showArchived: false, sort: "recent",
+      stacked: false, snapGrid: !!this.props.snapToGrid, hasSnapshot: false,
+      openId: null, showRaw: false, drawerOpen: false,
+      ctx: null, hoverId: null, dragId: null, helpOpen: false,
+      captureOpen: false, capMode: "rec", picked: null, recording: false, rawText: "",
+      exportOpen: false, working: null, rerunKey: null, rerunBusy: false,
+      confirmId: null, toast: "", toastAction: null
+    };
+    this.savedLayout = null;
+    this.T = T;
+  }
+
+  /* ---------- persistence ---------- */
+  get storeKey() { return "noteflow-board-v1"; }
+  load() {
+    try { return JSON.parse(localStorage.getItem(this.storeKey)) || {}; }
+    catch (e) { return {}; }
+  }
+  persist(notes, appearance) {
+    const layout = {};
+    (notes || this.state.notes).forEach(n => {
+      layout[n.id] = {
+        x: n.x, y: n.y, z: n.z, w: n.w,
+        collapsed: !!n.collapsed, pinned: !!n.pinned, archived: !!n.archived
+      };
+    });
+    try {
+      localStorage.setItem(this.storeKey, JSON.stringify({
+        layout: layout, appearance: appearance || this.state.appearance
+      }));
+    } catch (e) {}
+  }
+
+  setAppearance(mode) {
+    this.T.applyMode(mode);
+    this.setState({ appearance: mode });
+    this.persist(null, mode);
+  }
+
+  componentDidMount() {
+    this.T.applyMode(this.state.appearance);
+    this._docClick = e => {
+      const t = e.target;
+      if (this.state.ctx && !(t.closest && t.closest('[data-nf="ctx"]'))) this.setState({ ctx: null });
+      if (this.state.exportOpen && !(t.closest && t.closest('[data-nf="exportwrap"]'))) this.setState({ exportOpen: false });
+    };
+    this._mouse = e => { this._mx = e.clientX; this._my = e.clientY; };
+    this._keys = e => this.onKeyDown(e);
+    document.addEventListener("click", this._docClick);
+    document.addEventListener("mousemove", this._mouse);
+    document.addEventListener("keydown", this._keys);
+  }
+  componentWillUnmount() {
+    document.removeEventListener("click", this._docClick);
+    document.removeEventListener("mousemove", this._mouse);
+    document.removeEventListener("keydown", this._keys);
+    clearTimeout(this._toastT);
+  }
+
+  /* ---------- shortcuts: cursor card wins, else focused ---------- */
+  shortcutTarget() {
+    let el = null;
+    if (typeof this._mx === "number") {
+      const hit = document.elementFromPoint(this._mx, this._my);
+      el = hit && hit.closest ? hit.closest("[data-note]") : null;
+    }
+    if (!el) {
+      const active = document.activeElement;
+      el = active && active.closest ? active.closest("[data-note]") : null;
+    }
+    if (!el) return null;
+    const id = el.getAttribute("data-note");
+    return this.state.notes.filter(n => n.id === id)[0] || null;
+  }
+  onKeyDown(e) {
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) {
+      if (e.key === "Escape") e.target.blur();
+      return;
+    }
+    if (e.key === "Escape") {
+      this.setState({ captureOpen: false, drawerOpen: false, ctx: null, exportOpen: false, confirmId: null, recording: false, helpOpen: false });
+      return;
+    }
+    if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); this.setState({ helpOpen: !this.state.helpOpen }); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const n = this.shortcutTarget();
+    if (!n) return;
+    const k = e.key.toLowerCase();
+    const step = 20, S = this.T.SPACE;
+
+    if (k === "c") { e.preventDefault(); this.zTop += 1; this.updateNote(n.id, { collapsed: !n.collapsed, z: this.zTop }); }
+    else if (k === "d") { e.preventDefault(); this.duplicate(n); }
+    else if (k === "e") { e.preventDefault(); this.exportNoteImage(n); }
+    else if (k === "p") {
+      e.preventDefault();
+      this.updateNote(n.id, { pinned: !n.pinned });
+      this.toast(n.pinned ? "Unpinned" : "Pinned — stack and auto-arrange will skip it");
+    }
+    else if (k === "a") { e.preventDefault(); this.archive(n); }
+    else if (k === "f") { e.preventDefault(); this.bringToFront(n.id); }
+    else if (k === "o" || e.key === "Enter") { e.preventDefault(); this.openNote(n.id); }
+    else if (e.key === "]" || k === "=" || k === "+") {
+      e.preventDefault();
+      this.updateNote(n.id, { w: Math.min(S.noteWMax, (n.w || S.noteW) + step) });
+    }
+    else if (e.key === "[" || k === "-") {
+      e.preventDefault();
+      this.updateNote(n.id, { w: Math.max(S.noteWMin, (n.w || S.noteW) - step) });
+    }
+    else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); this.setState({ confirmId: n.id }); }
+  }
+
+  toast(msg, action) {
+    this.setState({ toast: msg, toastAction: action || null });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(() => this.setState({ toast: "", toastAction: null }), action ? 5000 : 2400);
+  }
+
+  fmtDate(d) {
+    return new Date(d + "T00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+
+  /* ---------- filtering ---------- */
+  matches(n) {
+    const s = this.state, T = this.T.TEMPLATES;
+    if (!!n.archived !== !!s.showArchived) return false;
+    if (s.filterTmpl && n.tmpl !== s.filterTmpl) return false;
+    if (s.filterTag && n.tags.indexOf(s.filterTag) < 0 && n.sugg.indexOf(s.filterTag) < 0) return false;
+    if (s.filterRange) {
+      const days = (new Date(window.NF_SEED.today) - new Date(n.date)) / 864e5;
+      if (days > s.filterRange) return false;
+    }
+    if (s.query) {
+      const parts = [n.title, T[n.tmpl].name].concat(n.tags, n.sugg, [n.raw]);
+      n.fields.forEach(f => {
+        parts.push(f.k + " " + (Array.isArray(f.v) ? f.v.map(x => x.t || x).join(" ") : f.v));
+      });
+      n.actions.forEach(a => parts.push(a.t));
+      if (parts.join(" ").toLowerCase().indexOf(s.query.toLowerCase()) < 0) return false;
+    }
+    return true;
+  }
+  sorted(list) {
+    const by = this.state.sort, TPL = this.T.TEMPLATES;
+    return list.slice().sort((a, b) => {
+      if (by === "title") return a.title.localeCompare(b.title);
+      if (by === "template") return TPL[a.tmpl].name.localeCompare(TPL[b.tmpl].name);
+      return b.date.localeCompare(a.date);
+    });
+  }
+
+  /* ---------- mutation ---------- */
+  updateNote(id, patch, cb) {
+    this.setState(st => {
+      const notes = st.notes.map(n => n.id === id ? Object.assign({}, n, patch) : n);
+      this.persist(notes);
+      return { notes: notes };
+    }, cb);
+  }
+  bringToFront(id) {
+    this.zTop += 1;
+    this.updateNote(id, { z: this.zTop });
+  }
+  archive(n) {
+    const wasArchived = !!n.archived;
+    this.updateNote(n.id, { archived: !wasArchived });
+    if (wasArchived) this.toast("Restored to the board");
+    else this.toast("Archived", () => this.updateNote(n.id, { archived: false }));
+  }
+
+  /* ---------- drag ---------- */
+  onNoteDown(n, e) {
+    if (e.target.closest && e.target.closest("[data-act]")) return;
+    const el = e.currentTarget;
+    this.bringToFront(n.id);
+    const sx = e.clientX, sy = e.clientY, ox = n.x, oy = n.y;
+    let moved = false, last = { x: ox, y: oy };
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    this.setState({ dragId: n.id });
+    const move = ev => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+      let nx = Math.max(0, ox + dx), ny = Math.max(0, oy + dy);
+      if (this.state.snapGrid) {
+        const g = this.T.SPACE.gridSnap;
+        nx = Math.round(nx / g) * g; ny = Math.round(ny / g) * g;
+      }
+      last = { x: nx, y: ny };
+      el.style.left = nx + "px"; el.style.top = ny + "px";
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      this.setState({ dragId: null });
+      if (!moved) { this.openNote(n.id); return; }
+      this.updateNote(n.id, { x: last.x, y: last.y });
+      if (this.state.stacked) this.setState({ stacked: false });
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  }
+
+  onNoteResize(n, e) {
+    e.stopPropagation();
+    const h = e.currentTarget;
+    const el = h.closest("[data-note]");
+    const sx = e.clientX, ow = n.w || this.T.SPACE.noteW;
+    const min = this.T.SPACE.noteWMin, max = this.T.SPACE.noteWMax;
+    let last = ow;
+    try { h.setPointerCapture(e.pointerId); } catch (err) {}
+    const move = ev => {
+      last = Math.max(min, Math.min(max, ow + (ev.clientX - sx)));
+      el.style.width = last + "px";
+    };
+    const up = () => {
+      h.removeEventListener("pointermove", move);
+      h.removeEventListener("pointerup", up);
+      this.updateNote(n.id, { w: last });
+    };
+    h.addEventListener("pointermove", move);
+    h.addEventListener("pointerup", up);
+  }
+
+  /* ---------- stack / arrange (pinned notes are skipped) ---------- */
+  snapshot() {
+    this.savedLayout = this.state.notes.map(n => ({ id: n.id, x: n.x, y: n.y, w: n.w }));
+    this.setState({ hasSnapshot: true });
+  }
+  restoreLayout() {
+    if (!this.savedLayout) return;
+    const map = {};
+    this.savedLayout.forEach(s => { map[s.id] = s; });
+    this.setState(st => {
+      const notes = st.notes.map(n => map[n.id] ? Object.assign({}, n, map[n.id]) : n);
+      this.persist(notes);
+      return { notes: notes, stacked: false, hasSnapshot: false };
+    });
+    this.savedLayout = null;
+    this.toast("Layout restored");
+  }
+  toggleStack() {
+    if (this.state.stacked) { this.restoreLayout(); return; }
+    this.snapshot();
+    const A = this.T.SPACE.stackAnchor, step = 4;
+    const order = this.sorted(this.state.notes.filter(n => this.matches(n) && !n.pinned));
+    const pos = {};
+    order.forEach((n, k) => { pos[n.id] = { x: A.x + k * step, y: A.y + k * step, k: k }; });
+    this.setState(st => {
+      const notes = st.notes.map(n => {
+        const p = pos[n.id];
+        if (!p) return n;
+        this.zTop += 1;
+        return Object.assign({}, n, { x: p.x, y: p.y, z: this.zTop, collapsed: false });
+      });
+      this.persist(notes);
+      return { notes: notes, stacked: true };
+    }, () => this.toast("Stacked " + order.length + " notes"));
+  }
+  autoArrange() {
+    this.snapshot();
+    const S = this.T.SPACE;
+    const boardEl = document.querySelector('[data-nf="board"]');
+    const width = boardEl ? boardEl.clientWidth : 1180;
+    const colW = S.noteW + S.arrangeGap;
+    const cols = Math.max(1, Math.floor((width - 40) / colW));
+    const order = this.sorted(this.state.notes.filter(n => this.matches(n) && !n.pinned));
+    const pos = {};
+    order.forEach((n, k) => {
+      pos[n.id] = { x: 20 + (k % cols) * colW, y: 10 + Math.floor(k / cols) * S.arrangeRowH, w: S.noteW };
+    });
+    this.setState(st => {
+      const notes = st.notes.map(n => {
+        const p = pos[n.id];
+        if (!p) return n;
+        this.zTop += 1;
+        return Object.assign({}, n, { x: p.x, y: p.y, w: p.w, z: this.zTop });
+      });
+      this.persist(notes);
+      return { notes: notes, stacked: false };
+    }, () => this.toast("Notes tidied into a grid"));
+  }
+
+  /* ---------- duplicate / delete ---------- */
+  duplicate(n) {
+    const copy = JSON.parse(JSON.stringify(n));
+    copy.id = "n" + Date.now();
+    copy.x += 18; copy.y += 18;
+    this.zTop += 1; copy.z = this.zTop;
+    copy.pinned = false;
+    copy.title = n.title + " (copy)";
+    this.setState(st => {
+      const notes = st.notes.concat([copy]);
+      this.persist(notes);
+      return { notes: notes };
+    }, () => this.toast("Note duplicated"));
+  }
+  reallyDelete(id) {
+    this.setState(st => {
+      const notes = st.notes.filter(n => n.id !== id);
+      this.persist(notes);
+      return {
+        notes: notes, confirmId: null,
+        openId: st.openId === id ? null : st.openId,
+        drawerOpen: st.openId === id ? false : st.drawerOpen
+      };
+    }, () => this.toast("Note deleted — action items and versions removed"));
+  }
+
+  openNote(id) { this.setState({ openId: id, showRaw: false, drawerOpen: true, rerunKey: null }); }
+
+  /* ---------- export ---------- */
+  download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+  noteToText(n) {
+    const t = this.T.TEMPLATES[n.tmpl];
+    let out = n.title + "\n" + t.name + " · " + this.fmtDate(n.date) + "\n------------------------------\n";
+    n.fields.forEach(f => {
+      let v = f.v;
+      if (f.t === "people") v = f.v.join(", ");
+      else if (f.t === "checks") v = f.v.map(c => (c.done ? "[x] " : "[ ] ") + c.t).join("\n");
+      else if (f.t === "outline") v = f.v.map(l => "- " + l).join("\n");
+      out += "\n" + f.k + ":\n" + v + "\n";
+    });
+    if (n.tags.length) out += "\nTags: " + n.tags.map(x => "#" + x).join(" ") + "\n";
+    if (n.actions.length) out += "\nAction items:\n" + n.actions.map(a => (a.done ? "[x] " : "[ ] ") + a.t + (a.due ? " (due " + a.due + ")" : "")).join("\n") + "\n";
+    return out;
+  }
+  noteToMd(n) {
+    const t = this.T.TEMPLATES[n.tmpl];
+    let out = "# " + n.title + "\n*" + t.name + " · " + this.fmtDate(n.date) + "*\n\n";
+    n.fields.forEach(f => {
+      out += "**" + f.k + "**\n\n";
+      if (f.t === "people") out += f.v.join(", ") + "\n\n";
+      else if (f.t === "checks") out += f.v.map(c => "- [" + (c.done ? "x" : " ") + "] " + c.t).join("\n") + "\n\n";
+      else if (f.t === "outline") out += f.v.map(l => "- " + l).join("\n") + "\n\n";
+      else out += f.v + "\n\n";
+    });
+    if (n.tags.length) out += n.tags.map(x => "`#" + x + "`").join(" ") + "\n\n";
+    if (n.actions.length) out += "**Action items**\n\n" + n.actions.map(a => "- [" + (a.done ? "x" : " ") + "] " + a.t + (a.due ? " _(due " + a.due + ")_" : "")).join("\n") + "\n";
+    return out;
+  }
+  exportBoard(fmt) {
+    const visible = this.state.notes.filter(n => this.matches(n));
+    if (!visible.length) { this.toast("Nothing visible to export — clear a filter first"); return; }
+    if (fmt === "md") this.download("noteflow-board.md", visible.map(n => this.noteToMd(n)).join("\n---\n\n"), "text/markdown");
+    else if (fmt === "txt") this.download("noteflow-board.txt", visible.map(n => this.noteToText(n)).join("\n========================================\n\n"), "text/plain");
+    else if (fmt === "pdf") this.toast("PDF export — coming soon");
+    else this.exportBoardImage();
+  }
+  exportBoardImage() {
+    const board = document.querySelector('[data-nf="board"]');
+    if (!board || !window.html2canvas) { this.toast("Image export unavailable here"); return; }
+    this.toast("Rendering board image…");
+    window.html2canvas(board, {
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--felt").trim(),
+      scale: 2
+    }).then(canvas => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "noteflow-board.png"; a.click();
+      this.toast("Board image downloaded");
+    }).catch(() => this.toast("Image export failed in this preview environment"));
+  }
+  exportNoteImage(n) {
+    const el = document.querySelector('[data-note="' + n.id + '"]');
+    if (!el) { this.toast("Note isn't visible on the board right now"); return; }
+    if (!window.html2canvas) { this.toast("Image export unavailable here"); return; }
+    this.toast("Rendering note image…");
+    window.html2canvas(el, { backgroundColor: null, scale: 3 }).then(canvas => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "noteflow-" + n.id + ".png"; a.click();
+      this.toast("Note image downloaded");
+    }).catch(() => this.toast("Image export failed in this preview environment"));
+  }
+
+  /* ---------- capture ---------- */
+  restructure() {
+    const pick = this.state.picked;
+    this.setState({ working: "Restructuring with Gemini…" });
+    setTimeout(() => this.setState({ working: "Extracting tags and action items…" }), 950);
+    setTimeout(() => {
+      const k = (pick && pick !== "__new") ? pick : "meeting";
+      const t = this.T.TEMPLATES[k];
+      this.zTop += 1;
+      const note = {
+        id: "n" + Date.now(), tmpl: k, title: "Untitled capture", date: window.NF_SEED.today,
+        rot: 0, x: Math.round(24 + Math.random() * 300), y: Math.round(640 + Math.random() * 80),
+        w: this.T.SPACE.noteW, z: this.zTop, collapsed: false, pinned: false, archived: false,
+        fields: [{ k: "Summary", t: "text", v: "Your restructured capture lands here, shaped by the " + t.name.toLowerCase() + " template." }],
+        tags: ["new"], sugg: ["untagged"], actions: [],
+        raw: this.state.rawText || "(audio capture — transcript pending)"
+      };
+      this.setState(st => {
+        const notes = st.notes.concat([note]);
+        this.persist(notes);
+        return { notes: notes, captureOpen: false, working: null, recording: false, rawText: "", picked: null };
+      }, () => this.toast("Note pinned to the board"));
+    }, 2000);
+  }
+
+  /* ---------- style helpers ---------- */
+  btn() {
+    return { border: "1px solid var(--chrome-line)", borderRadius: "8px", padding: "8px 13px", fontWeight: 600, fontSize: "13px", background: "var(--chrome-2)", color: "var(--chalk)", transition: "var(--t-btn)", whiteSpace: "nowrap", flex: "none" };
+  }
+  chipStyle(on) {
+    return on
+      ? { border: "1px solid var(--brass)", borderRadius: "99px", padding: "4px 11px", fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: ".04em", background: "var(--brass)", color: "var(--brass-ink)", fontWeight: 600 }
+      : { border: "1px solid var(--chrome-line)", borderRadius: "99px", padding: "4px 11px", fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: ".04em", color: "var(--chip-fg)", background: "var(--chrome-2)" };
+  }
+  dot(color, size) {
+    const d = (size || 9) + "px";
+    return { width: d, height: d, borderRadius: "50%", background: color, flex: "none", display: "inline-block" };
+  }
+  segStyle(on) {
+    return {
+      padding: "7px 14px", fontSize: "12.5px", fontWeight: on ? 600 : 400,
+      color: on ? "var(--chalk)" : "var(--chalk-dim)",
+      background: on ? "var(--hover)" : "transparent"
+    };
+  }
+  railStyle(on) {
+    return {
+      display: "flex", alignItems: "center", gap: "9px", width: "100%", textAlign: "left",
+      padding: "7px 8px", borderRadius: "7px", fontSize: "13.5px",
+      color: on ? "var(--chalk)" : "var(--rail-fg)",
+      background: on ? "var(--hover)" : "transparent",
+      fontWeight: on ? 600 : 400
+    };
+  }
+
+  renderVals() {
+    const s = this.state, T = this.T, TPL = T.TEMPLATES, CARD = T.MODE_CARD;
+    const notesAll = s.notes;
+    const live = notesAll.filter(n => !n.archived);
+    const visible = notesAll.filter(n => this.matches(n));
+
+    const notes = visible.map(n => {
+      const tpl = TPL[n.tmpl];
+      const dragging = s.dragId === n.id;
+      const hovering = s.hoverId === n.id && !s.dragId;
+      const openCount = n.actions.filter(a => !a.done).length;
+
+      const fields = n.fields.map(f => ({
+        k: f.k,
+        isText: f.t === "text" || f.t === "prose",
+        isPeople: f.t === "people",
+        isChecks: f.t === "checks",
+        isOutline: f.t === "outline",
+        text: (f.t === "text" || f.t === "prose") ? f.v : "",
+        textStyle: f.t === "prose"
+          ? { fontStyle: "italic", fontSize: "13px", lineHeight: 1.45 }
+          : { fontSize: "12.8px", lineHeight: 1.45 },
+        people: f.t === "people" ? f.v : [],
+        outline: f.t === "outline" ? f.v : [],
+        checks: f.t === "checks" ? f.v.map(c => ({
+          t: c.t,
+          boxStyle: { width: "12px", height: "12px", border: "1.5px solid " + (c.done ? tpl.pin : "var(--card-box)"), flex: "none", marginTop: "2px", borderRadius: "3px", display: "block", background: c.done ? tpl.pin : "transparent" },
+          textStyle: c.done ? { color: "var(--ink-2)", textDecoration: "line-through" } : {}
+        })) : []
+      }));
+
+      const chips = n.tags.map(t => ({
+        label: "#" + t, title: "",
+        style: { fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--ink-2)", background: "var(--card-chip)", padding: "3px 8px", borderRadius: "99px" }
+      })).concat(n.sugg.map(t => ({
+        label: "#" + t + "?", title: "Suggested tag — confirm or remove",
+        style: { fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--muted)", background: "none", border: "1px dashed var(--card-box)", padding: "2px 8px", borderRadius: "99px" }
+      })));
+
+      return {
+        id: n.id, title: n.title, pinned: !!n.pinned,
+        metaLine: tpl.name + " · " + this.fmtDate(n.date),
+        showBody: !n.collapsed,
+        openCount: openCount, openLabel: openCount + " open",
+        collapseLabel: n.collapsed ? "Expand note" : "Collapse note",
+        fields: fields, chips: chips,
+        dotStyle: this.dot(tpl.pin, 7),
+        style: {
+          position: "absolute", width: (n.w || T.SPACE.noteW) + "px",
+          background: "var(--card-bg)", color: "var(--ink)",
+          padding: CARD.padding, borderRadius: CARD.radius,
+          border: "1px solid " + (n.pinned ? "var(--brass)" : "var(--card-line)"),
+          transform: dragging ? "scale(1.02)" : hovering ? "translateY(-2px)" : "none",
+          boxShadow: dragging ? "var(--shadow-note-drag)" : hovering ? "var(--shadow-note-hover)" : "var(--shadow-note)",
+          transition: dragging ? "none" : (s.stacked ? "var(--t-stacked)" : "transform .16s ease, box-shadow .16s ease, width .16s ease"),
+          cursor: dragging ? "grabbing" : "grab", touchAction: "none",
+          left: n.x + "px", top: n.y + "px", zIndex: n.z
+        },
+        titleStyle: {
+          fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "17px",
+          letterSpacing: "-.015em", lineHeight: 1.25,
+          margin: n.collapsed ? "8px 0 0" : "8px 0 11px"
+        },
+        collapseBtnStyle: {
+          flex: "none", width: "18px", height: "18px", display: "grid", placeItems: "center",
+          borderRadius: "4px", color: "var(--ink-2)", opacity: .75,
+          transition: "var(--t-fade)", transform: n.collapsed ? "rotate(-90deg)" : "none"
+        },
+        handleStyle: {
+          position: "absolute", right: "4px", bottom: "4px", width: "16px", height: "16px",
+          display: "grid", placeItems: "center", color: "var(--ink-2)",
+          cursor: "nwse-resize", opacity: hovering ? .9 : .35, transition: "var(--t-fade)"
+        },
+        onDown: e => this.onNoteDown(n, e),
+        onResize: e => this.onNoteResize(n, e),
+        onEnter: () => { if (!s.dragId) this.setState({ hoverId: n.id }); },
+        onLeave: () => { if (!s.dragId) this.setState({ hoverId: null }); },
+        onKey: e => { if (e.key === " ") { e.preventDefault(); this.openNote(n.id); } },
+        onCollapse: e => {
+          e.stopPropagation();
+          this.zTop += 1;
+          this.updateNote(n.id, { collapsed: !n.collapsed, z: this.zTop });
+        },
+        onCtx: e => {
+          e.preventDefault();
+          this.bringToFront(n.id);
+          this.setState({ ctx: { id: n.id, x: e.clientX, y: e.clientY } });
+        }
+      };
+    });
+
+    /* ----- rail ----- */
+    const railTemplates = [{ key: "", name: "All notes", count: live.length, pin: "var(--rail-dot)" }]
+      .concat(Object.keys(TPL).map(k => ({
+        key: k, name: TPL[k].name + (TPL[k].custom ? " ✎" : ""),
+        count: live.filter(n => n.tmpl === k).length, pin: TPL[k].pin
+      }))).map(r => ({
+        name: r.name, count: r.count,
+        style: this.railStyle(r.key ? s.filterTmpl === r.key : !s.filterTmpl),
+        dotStyle: this.dot(r.pin),
+        go: () => this.setState({ filterTmpl: r.key || null })
+      }));
+
+    const viewFilters = [
+      { name: "Board", on: !s.showArchived, count: live.length, go: () => this.setState({ showArchived: false }) },
+      { name: "Archived", on: s.showArchived, count: notesAll.filter(n => n.archived).length, go: () => this.setState({ showArchived: true }) }
+    ].map(v => ({ name: v.name, count: v.count, style: this.railStyle(v.on), go: v.go }));
+
+    const todoItems = [];
+    live.forEach(n => n.actions.forEach((a, i) => todoItems.push({ a: a, n: n, i: i })));
+    todoItems.sort((x, y) => (x.a.done ? 1 : 0) - (y.a.done ? 1 : 0));
+    const todos = todoItems.map(it => ({
+      text: it.a.t, done: it.a.done,
+      sub: it.n.title + (it.a.due ? " · due " + it.a.due : ""),
+      style: {
+        padding: "8px 8px 8px 6px", display: "flex", gap: "9px", alignItems: "flex-start",
+        fontSize: "13px", lineHeight: 1.4, borderBottom: "1px solid var(--rule)",
+        color: it.a.done ? "var(--dim-2)" : "var(--rail-fg)",
+        textDecoration: it.a.done ? "line-through" : "none"
+      },
+      toggle: () => this.setState(st => ({
+        notes: st.notes.map(n => n.id !== it.n.id ? n : Object.assign({}, n, {
+          actions: n.actions.map((a, ai) => ai === it.i ? Object.assign({}, a, { done: !a.done }) : a)
+        }))
+      }))
+    }));
+
+    /* ----- chips ----- */
+    const rangeChips = [{ v: 7, label: "7 days" }, { v: 30, label: "30 days" }].map(r => ({
+      label: r.label, style: this.chipStyle(s.filterRange === r.v),
+      go: () => this.setState({ filterRange: s.filterRange === r.v ? null : r.v })
+    }));
+    const allTags = [];
+    live.forEach(n => n.tags.forEach(t => { if (allTags.indexOf(t) < 0) allTags.push(t); }));
+    const tagChips = allTags.slice(0, 6).map(t => ({
+      label: "#" + t, style: this.chipStyle(s.filterTag === t),
+      go: () => this.setState({ filterTag: s.filterTag === t ? null : t })
+    }));
+    const sortOptions = [
+      { key: "recent", label: "Recent" }, { key: "title", label: "Title" }, { key: "template", label: "Template" }
+    ].map(o => ({
+      label: o.label, style: this.chipStyle(s.sort === o.key),
+      go: () => this.setState({ sort: o.key })
+    }));
+
+    /* ----- drawer ----- */
+    const open = notesAll.filter(n => n.id === s.openId)[0];
+    let drawer = {
+      tmpl: "", date: "", title: "", showRaw: false, showStruct: true,
+      fields: [], tagLine: "", actions: [], hasActions: false, raw: "", rawStamp: "",
+      dotStyle: this.dot("var(--rail-dot)"), structStyle: this.segStyle(true), rawStyle: this.segStyle(false),
+      rerunKey: "meeting", rerunLabel: "Restructure again",
+      pinLabel: "Pin", archiveLabel: "Archive"
+    };
+    if (open) {
+      const tpl = TPL[open.tmpl];
+      drawer = {
+        tmpl: tpl.name, date: "· " + this.fmtDate(open.date), title: open.title,
+        showRaw: s.showRaw, showStruct: !s.showRaw,
+        dotStyle: this.dot(tpl.pin),
+        structStyle: this.segStyle(!s.showRaw), rawStyle: this.segStyle(s.showRaw),
+        raw: open.raw, rawStamp: "Captured " + this.fmtDate(open.date) + " · unedited",
+        rerunKey: s.rerunKey || open.tmpl,
+        rerunLabel: s.rerunBusy ? "Working…" : "Restructure again",
+        pinLabel: open.pinned ? "Unpin" : "Pin",
+        archiveLabel: open.archived ? "Restore" : "Archive",
+        fields: open.fields.map(f => ({
+          k: f.k,
+          lines: f.t === "people" ? [f.v.join(", ")]
+            : f.t === "checks" ? f.v.map(c => (c.done ? "✓ " : "○ ") + c.t)
+            : f.t === "outline" ? f.v.map(l => "— " + l)
+            : [f.v]
+        })),
+        tagLine: open.tags.map(t => "#" + t).join(" ") + (open.sugg.length ? "  " + open.sugg.map(t => "#" + t + " (suggested)").join(" ") : ""),
+        hasActions: open.actions.length > 0,
+        actions: open.actions.map((a, i) => ({
+          text: a.t, done: a.done, due: a.due ? " · due " + a.due : "",
+          toggle: () => this.setState(st => ({
+            notes: st.notes.map(n => n.id !== open.id ? n : Object.assign({}, n, {
+              actions: n.actions.map((x, xi) => xi === i ? Object.assign({}, x, { done: !x.done }) : x)
+            }))
+          }))
+        }))
+      };
+    }
+
+    /* ----- context menu ----- */
+    const ctxNote = s.ctx ? notesAll.filter(n => n.id === s.ctx.id)[0] : null;
+    const ctxBtn = { display: "flex", width: "100%", gap: "12px", alignItems: "center", padding: "8px 10px", fontSize: "13px", textAlign: "left", borderRadius: "6px", color: "var(--chalk)" };
+    const ctx = {
+      open: !!(s.ctx && ctxNote),
+      style: s.ctx ? {
+        position: "fixed", zIndex: 90, minWidth: "216px", background: "var(--chrome-2)",
+        border: "1px solid var(--chrome-line)", borderRadius: "10px", padding: "5px",
+        boxShadow: "var(--shadow-ctx)",
+        left: Math.min(s.ctx.x, window.innerWidth - 230) + "px",
+        top: Math.min(s.ctx.y, window.innerHeight - 300) + "px"
+      } : {},
+      items: ctxNote ? [
+        { label: "Bring to front", key: "F", go: () => { this.bringToFront(ctxNote.id); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: ctxNote.pinned ? "Unpin" : "Pin in place", key: "P", go: () => { this.updateNote(ctxNote.id, { pinned: !ctxNote.pinned }); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: ctxNote.collapsed ? "Expand card" : "Collapse card", key: "C", go: () => { this.updateNote(ctxNote.id, { collapsed: !ctxNote.collapsed }); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: "Duplicate", key: "D", go: () => { this.duplicate(ctxNote); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: "Export as image", key: "E", go: () => { this.exportNoteImage(ctxNote); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: ctxNote.archived ? "Restore to board" : "Archive", key: "A", go: () => { this.archive(ctxNote); this.setState({ ctx: null }); }, style: ctxBtn, hover: "background:var(--hover)" },
+        { label: "Delete note", key: "⌫", go: () => this.setState({ confirmId: ctxNote.id, ctx: null }), style: Object.assign({}, ctxBtn, { marginTop: "5px", borderTop: "1px solid var(--chrome-line)", paddingTop: "9px", borderRadius: "0 0 6px 6px" }), hover: "background:var(--danger-bg);color:var(--danger-fg)" }
+      ] : []
+    };
+
+    /* ----- capture ----- */
+    const tabStyle = on => ({
+      padding: "7px 13px", border: "1px solid " + (on ? "var(--brass)" : "var(--chrome-line)"), borderRadius: "8px",
+      fontSize: "13px", color: on ? "var(--chalk)" : "var(--chalk-dim)",
+      background: on ? "var(--hover)" : "transparent", fontWeight: on ? 600 : 400
+    });
+    const bars = [];
+    for (let i = 0; i < 18; i++) {
+      bars.push({
+        style: {
+          width: "3px", background: "var(--brass)", borderRadius: "1px",
+          height: s.recording ? "100%" : "20%",
+          animation: s.recording ? "nf-bounce .9s ease-in-out infinite" : "none",
+          animationDelay: (i * 0.06) + "s"
+        }
+      });
+    }
+    const capture = {
+      isRec: s.capMode === "rec", isPaste: s.capMode === "paste",
+      recTabStyle: tabStyle(s.capMode === "rec"), pasteTabStyle: tabStyle(s.capMode === "paste"),
+      raw: s.rawText, bars: bars,
+      hint: s.recording ? "Recording · 00:12 — tap again to stop" : "Tap to record — live transcript appears as you talk",
+      recBtnStyle: {
+        width: "64px", height: "64px", borderRadius: "50%", background: "var(--danger)",
+        boxShadow: "0 0 0 6px rgba(180,67,47,.14)",
+        animation: s.recording ? "nf-pulse 1.4s infinite" : "none"
+      },
+      working: s.working, idle: !s.working,
+      picks: Object.keys(TPL).map(k => ({
+        name: TPL[k].name, dotStyle: this.dot(TPL[k].pin, 8),
+        style: {
+          display: "flex", alignItems: "center", gap: "7px",
+          border: "1px solid " + (s.picked === k ? "var(--brass)" : "var(--chrome-line)"),
+          borderRadius: "8px", padding: "6px 11px", fontSize: "13px",
+          color: s.picked === k ? "var(--chalk)" : "var(--rail-fg)",
+          background: s.picked === k ? "var(--hover)" : "transparent"
+        },
+        go: () => this.setState({ picked: s.picked === k ? null : k })
+      })).concat([{
+        name: "+ New template", dotStyle: { display: "none" },
+        style: {
+          display: "flex", alignItems: "center", gap: "7px",
+          border: "1px solid " + (s.picked === "__new" ? "var(--brass)" : "var(--chrome-line)"),
+          borderRadius: "8px", padding: "6px 11px", fontSize: "13px",
+          color: s.picked === "__new" ? "var(--chalk)" : "var(--rail-fg)",
+          background: s.picked === "__new" ? "var(--hover)" : "transparent"
+        },
+        go: () => this.setState({ picked: s.picked === "__new" ? null : "__new" })
+      }])
+    };
+
+    return {
+      notes: notes,
+      btnStyle: this.btn(),
+      isEmpty: visible.length === 0,
+      emptyLine1: s.showArchived ? "Nothing archived yet." : "Nothing on the board matches that.",
+      emptyLine2: s.showArchived ? "Archive a note with A to tuck it away here." : "Clear a filter, or pin a new capture.",
+      countLabel: visible.length + " of " + (s.showArchived ? notesAll.filter(n => n.archived).length : live.length) + (s.showArchived ? " archived" : " on board"),
+      gridBgStyle: {
+        position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
+        backgroundImage: "linear-gradient(var(--board-grid) 1px, transparent 1px),linear-gradient(90deg, var(--board-grid) 1px, transparent 1px)",
+        backgroundSize: "40px 40px"
+      },
+
+      /* appearance */
+      lightStyle: this.segStyle(s.appearance === "light"),
+      darkStyle: this.segStyle(s.appearance === "dark"),
+      onLight: () => this.setAppearance("light"),
+      onDark: () => this.setAppearance("dark"),
+
+      /* topbar */
+      query: s.query,
+      onQuery: e => this.setState({ query: e.target.value.trim() }),
+      snapGrid: s.snapGrid,
+      onSnap: e => this.setState({ snapGrid: e.target.checked }),
+      stackLabel: s.stacked ? "Unstack" : "Stack all",
+      stackBtnStyle: Object.assign({}, this.btn(), s.stacked ? { borderColor: "var(--brass)", color: "var(--brass-text)" } : {}),
+      onStack: () => this.toggleStack(),
+      onArrange: () => this.autoArrange(),
+      hasSnapshot: s.hasSnapshot,
+      onRestore: () => this.restoreLayout(),
+      helpOpen: s.helpOpen,
+      onToggleHelp: () => this.setState({ helpOpen: !s.helpOpen }),
+      helpBtnStyle: Object.assign({}, this.btn(), { padding: "8px 12px", fontFamily: "var(--font-mono)" }),
+      helpRows: [
+        { label: "Open the note", key: "O" },
+        { label: "Collapse / expand", key: "C" },
+        { label: "Pin in place", key: "P" },
+        { label: "Duplicate", key: "D" },
+        { label: "Export as image", key: "E" },
+        { label: "Archive", key: "A" },
+        { label: "Bring to front", key: "F" },
+        { label: "Resize narrower / wider", key: "[  ]" },
+        { label: "Delete (asks first)", key: "⌫" },
+        { label: "This list", key: "?" }
+      ],
+      exportOpen: s.exportOpen,
+      onToggleExport: e => { e.stopPropagation(); this.setState({ exportOpen: !s.exportOpen }); },
+      exportItems: [
+        { label: "Image (.png)", go: () => { this.setState({ exportOpen: false }); this.exportBoard("image"); } },
+        { label: "Markdown (.md)", go: () => { this.setState({ exportOpen: false }); this.exportBoard("md"); } },
+        { label: "Plain text (.txt)", go: () => { this.setState({ exportOpen: false }); this.exportBoard("txt"); } },
+        { label: "PDF — coming soon", go: () => { this.setState({ exportOpen: false }); this.exportBoard("pdf"); } }
+      ],
+
+      /* rail + chips */
+      railTemplates: railTemplates,
+      viewFilters: viewFilters,
+      todos: todos,
+      rangeChips: rangeChips,
+      tagChips: tagChips,
+      sortOptions: sortOptions,
+
+      /* drawer */
+      drawer: drawer,
+      drawerStyle: {
+        position: "fixed", top: 0, right: 0, bottom: 0, width: "min(440px,100%)", zIndex: 60,
+        background: "var(--chrome-2)", borderLeft: "1px solid var(--chrome-line)",
+        transform: s.drawerOpen ? "none" : "translateX(101%)",
+        boxShadow: s.drawerOpen ? "var(--shadow-drawer)" : "none",
+        transition: "var(--t-drawer)", display: "flex", flexDirection: "column"
+      },
+      templateOptions: Object.keys(TPL).map(k => ({ key: k, name: TPL[k].name })),
+      onCloseDrawer: () => this.setState({ drawerOpen: false }),
+      onShowStruct: () => this.setState({ showRaw: false }),
+      onShowRaw: () => this.setState({ showRaw: true }),
+      onRerunPick: e => this.setState({ rerunKey: e.target.value }),
+      onRerun: () => {
+        if (!open || s.rerunBusy) return;
+        const k = s.rerunKey || open.tmpl;
+        this.setState({ rerunBusy: true });
+        setTimeout(() => {
+          this.updateNote(open.id, { tmpl: k });
+          this.setState({ rerunBusy: false });
+        }, 900);
+      },
+      onDrawerDup: () => { if (open) this.duplicate(open); },
+      onDrawerImage: () => { if (open) this.exportNoteImage(open); },
+      onDrawerPin: () => { if (open) this.updateNote(open.id, { pinned: !open.pinned }); },
+      onDrawerArchive: () => { if (open) this.archive(open); },
+
+      /* capture */
+      capture: capture,
+      scrimStyle: {
+        position: "fixed", inset: 0, background: "rgba(8,7,6,.72)", zIndex: 70,
+        display: s.captureOpen ? "grid" : "none", placeItems: "start center",
+        padding: "24px", overflow: "auto"
+      },
+      onOpenCapture: () => this.setState({ captureOpen: true }),
+      onCloseCapture: () => this.setState({ captureOpen: false, recording: false }),
+      onScrimClick: e => { if (e.target === e.currentTarget) this.setState({ captureOpen: false, recording: false }); },
+      stop: e => e.stopPropagation(),
+      onModeRec: () => this.setState({ capMode: "rec" }),
+      onModePaste: () => this.setState({ capMode: "paste" }),
+      onToggleRec: () => this.setState({ recording: !s.recording }),
+      onRawInput: e => this.setState({ rawText: e.target.value }),
+      onRestructure: () => this.restructure(),
+
+      /* menus, confirm, toast */
+      ctx: ctx,
+      confirm: {
+        open: !!s.confirmId,
+        body: "This also removes its action items and version history. That cascade can't be undone."
+      },
+      onCancelDelete: () => this.setState({ confirmId: null }),
+      onConfirmDelete: () => this.reallyDelete(s.confirmId),
+      toastMsg: s.toast,
+      toastAction: !!s.toastAction,
+      onToastUndo: () => {
+        if (s.toastAction) s.toastAction();
+        this.setState({ toast: "", toastAction: null });
+      },
+      toastStyle: {
+        position: "fixed", bottom: "22px", left: "50%", zIndex: 95,
+        display: "flex", alignItems: "center", gap: "16px",
+        background: "var(--chrome-2)", border: "1px solid var(--chrome-line)",
+        borderRadius: "10px", padding: "11px 18px",
+        fontFamily: "var(--font-mono)", fontSize: "12.5px", letterSpacing: ".03em",
+        boxShadow: "var(--shadow-toast)", color: "var(--chalk)",
+        transition: "var(--t-toast)",
+        transform: s.toast ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(160%)"
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
