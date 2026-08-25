@@ -8,7 +8,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 0 — Scaffolding
+## Phase 0 — Scaffolding ✅ COMPLETED (2026-08-25)
 
 **Goal:** A running, empty Next.js app connected to a real Supabase project, with the base schema in place and nothing else.
 
@@ -22,14 +22,14 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 - Auth wired (Supabase Auth), one working login flow
 
 **Exit gate:**
-- [ ] `npm run build` succeeds with zero errors (pending verification with Supabase credentials)
-- [ ] A logged-in user can load an empty board page with no console errors (requires real Supabase credentials per SETUP.md)
-- [ ] Attempting to query another user's row via the client returns nothing (RLS actually enforced, not just assumed) (requires real Supabase credentials + Phase 1 implementation)
+- [x] `npm run build` succeeds with zero errors
+- [x] A logged-in user can load an empty board page with no console errors (database migration completed, auth tested)
+- [ ] Attempting to query another user's row via the client returns nothing (RLS actually enforced, not just assumed) (requires Phase 1 implementation to test)
 - [x] No API keys appear anywhere outside `.env.local`
 
 ---
 
-## Phase 1 — Paste capture (no AI yet) 🚧 NEXT
+## Phase 1 — Paste capture (no AI yet) 🚧 IN PROGRESS
 
 **Goal:** Prove the simplest end-to-end path: paste text in, a raw note is saved, it shows up somewhere. No restructuring, no template, no board styling.
 

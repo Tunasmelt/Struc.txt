@@ -25,6 +25,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Logout route handler (phase 0)
 - Environment variable template in `.env.local` with placeholder names (phase 0)
 - SETUP.md with complete Supabase project setup instructions (phase 0)
+- Created database migration for user_id schema configuration and real RLS policies (phase 0/1)
+- Completed paste capture UI layout rendering the CaptureForm and NoteList on the Home page (phase 1)
+- Wired note creation Server Action to persist captured text in notes table (phase 1)
+
 
 ### Changed
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)
