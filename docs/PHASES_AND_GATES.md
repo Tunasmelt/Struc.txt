@@ -24,7 +24,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 **Exit gate:**
 - [x] `npm run build` succeeds with zero errors
 - [x] A logged-in user can load an empty board page with no console errors (dev server running successfully)
-- [ ] Attempting to query another user's document via the client returns nothing (permissions actually enforced, not just assumed) - pending Phase 1 implementation to test
+- [ ] Attempting to query another user's document via the client returns nothing (permissions actually enforced, not just assumed) (requires Phase 1 implementation to test)
 - [x] No API keys appear anywhere outside `.env.local`
 
 ---
