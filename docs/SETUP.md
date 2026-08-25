@@ -1,49 +1,39 @@
 # SETUP.md — NoteFlow
 
-This document contains the setup steps that require a real Appwrite project and credentials. The codebase is scaffolded and ready, but you need to complete these steps to connect it to a live Appwrite instance.
+This document contains the setup steps that require a real Supabase project and credentials. The codebase is scaffolded and ready, but you need to complete these steps to connect it to a live Supabase instance.
 
 ---
 
 ## Prerequisites
 
-- An Appwrite account (free tier is sufficient)
+- A Supabase account (free tier is sufficient)
 - Node.js and npm installed (already done in the repo)
-- Appwrite CLI (optional, but recommended for local development)
+- Supabase CLI (optional, but recommended for local development)
 
 ---
 
-## Step 1: Create an Appwrite Project
+## Step 1: Create a Supabase Project
 
-1. Go to [https://appwrite.io](https://appwrite.io) and sign in
-2. Click "Create Project"
+1. Go to [https://supabase.com](https://supabase.com) and sign in
+2. Click "New Project"
 3. Choose a name (e.g., "noteflow")
-4. Choose a region closest to your users
-5. Click "Create Project"
-6. Wait for the project to be provisioned (typically 1-2 minutes)
+4. Choose a database password (save this securely)
+5. Choose a region closest to your users
+6. Click "Create new project"
+7. Wait for the project to be provisioned (typically 1-2 minutes)
 
 ---
 
 ## Step 2: Get Your Credentials
 
-From your Appwrite project dashboard:
+From your Supabase project dashboard:
 
-1. Navigate to **Settings → API Keys**
-2. Click "Create API Key"
-3. Give it a name (e.g., "noteflow-server")
-4. Select the following scopes:
-   - `databases.read`
-   - `databases.write`
-   - `users.read`
-   - `users.write`
-   - `files.read`
-   - `files.write`
-5. Copy the API Key (save this securely)
-6. Navigate to **Settings → General**
-7. Copy the following values:
-   - **Project ID** (e.g., `645xxxxxxxxxxxxxxxx`)
-   - **API Endpoint** (e.g., `https://cloud.appwrite.io/v1`)
+1. Navigate to **Settings → API**
+2. Copy the following values:
+   - **Project URL** (e.g., `https://xxxxxxxx.supabase.co`)
+   - **anon public key** (this is your `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 
-⚠️ **Important:** Never commit the `APPWRITE_API_KEY` to version control. It has full admin access to your project.
+⚠️ **Important:** The anon key is safe to use in client code as long as Row-Level Security (RLS) is enabled on your tables. Never use the service_role key in client code.
 
 ---
 
@@ -52,10 +42,9 @@ From your Appwrite project dashboard:
 Update `.env.local` in the repo root with your actual credentials:
 
 ```env
-# Appwrite
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_actual_project_id_here
-APPWRITE_API_KEY=your_actual_api_key_here
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 # AI Providers (get these from their respective dashboards)
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -64,43 +53,37 @@ GROQ_API_KEY=your_groq_api_key_here
 
 ---
 
-## Step 4: Create Database Collections
+## Step 4: Run Database Migration
 
-### Option A: Using Appwrite Console (recommended for first-time setup)
+The database schema is defined in `supabase/migrations/001_base_schema.sql`. You can apply it in two ways:
 
-1. Navigate to **Databases** in your Appwrite dashboard
-2. Click "Create Database" (if needed, default database is usually sufficient)
-3. For each collection listed below, create it manually via the console:
-   - **templates**: name (string), icon_color (string), fields (string, JSON), is_preset (boolean), created_at (datetime)
-   - **boards**: name (string), theme (string), created_at (datetime)
-   - **notes**: title (string), note_date (string), raw_text (string), audio_path (string), transcript_source (string), position (string, JSON), search (string), created_at (datetime), updated_at (datetime)
-   - **note_versions**: body (string, JSON), model_used (string), prompt_version (string), created_at (datetime)
-   - **tags**: name (string), created_at (datetime)
-   - **note_tags**: status (string), created_at (datetime)
-   - **action_items**: text (string), due_date (string), status (string), source (string), created_at (datetime)
-   - **shares**: resource_type (string), token (string), expires_at (string), revoked_at (string), created_at (datetime)
+### Option A: Using Supabase Dashboard (recommended for first-time setup)
 
-4. For each collection, set **Document Security** to **Enabled** in collection settings
-5. For the `notes` collection, create a **fulltext index** on the `search` attribute (this enables Phase 5 search)
+1. Navigate to **SQL Editor** in your Supabase dashboard
+2. Click "New Query"
+3. Copy the contents of `supabase/migrations/001_base_schema.sql`
+4. Paste it into the SQL editor
+5. Click "Run" to execute the migration
 
-### Option B: Using the Setup Script (for advanced users)
+### Option B: Using Supabase CLI (for advanced users)
 
-You can run the collection creation script:
+If you have the Supabase CLI installed:
 
 ```bash
-# This requires the server SDK with API key configured
-node -e "require('./lib/appwrite/collections').createCollections()"
-```
+# Link your local project to your Supabase project
+supabase link --project-ref your-project-ref
 
-Note: The script may not create indexes due to SDK signature differences. Create the fulltext index manually in the console.
+# Run the migration
+supabase db push
+```
 
 ---
 
 ## Step 5: Enable Email Auth (Required for Login Flow)
 
-1. Navigate to **Auth** in your Appwrite dashboard
-2. Ensure "Email/Password" provider is enabled
-3. For development, you may want to disable email verification under **Settings** (not recommended for production)
+1. Navigate to **Authentication → Providers** in your Supabase dashboard
+2. Ensure "Email" provider is enabled
+3. For development, you may want to disable email confirmation under **Authentication → Settings** (not recommended for production)
 
 ---
 
@@ -136,31 +119,32 @@ Note: The script may not create indexes due to SDK signature differences. Create
 
 ---
 
-## Step 8: Verify Document Permissions
+## Step 8: Verify Row-Level Security
 
-To confirm document permissions are working correctly:
+To confirm RLS is working correctly:
 
 1. Sign up with two different email accounts (User A and User B)
 2. Create a note as User A (this will be testable once Phase 1's note capture is implemented)
 3. Sign out and sign in as User B
 4. User B should not be able to see User A's notes
 
-The collections use document permissions (Role.user(userId)) to ensure users can only access their own data. When creating documents via the client SDK, the creator is automatically granted read/update/delete permissions.
+The tables use Row-Level Security (RLS) policies to ensure users can only access their own data. The migration includes placeholder policies that you may need to customize based on your auth setup.
 
 ---
 
 ## Troubleshooting
 
-### "Invalid Appwrite credentials" errors
+### "Invalid Supabase credentials" errors
 
-- Ensure `NEXT_PUBLIC_APPWRITE_ENDPOINT` and `NEXT_PUBLIC_APPWRITE_PROJECT_ID` are correctly set
-- Check that the Appwrite project is active
-- Verify the API key has the required scopes
+- Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are correctly set
+- Check that the Supabase project is active
+- Verify the anon key is from the correct project
 
-### Collection creation fails
+### Migration fails
 
-- Ensure you're using a fresh project (no existing collections with conflicting names)
-- Check that your API key has `databases.write` scope
+- Ensure you're using a fresh project (no existing tables with conflicting names)
+- Check that your database has the required extensions (uuid-ossp)
+- Review the SQL error message in the Supabase dashboard
 
 ### Build errors with placeholder env vars
 
@@ -170,8 +154,8 @@ The collections use document permissions (Role.user(userId)) to ensure users can
 ### Email confirmation not received
 
 - Check your spam folder
-- Temporarily disable email confirmation for development (Auth → Settings)
-- Ensure the Email provider is enabled in Auth → Providers
+- Temporarily disable email confirmation for development (Authentication → Settings)
+- Ensure the Email provider is enabled in Authentication → Providers
 
 ---
 
@@ -187,4 +171,4 @@ The migration SQL in `supabase/migrations/001_base_schema.sql` includes:
 - All required tables (users, templates, notes, note_versions, tags, note_tags, action_items, boards)
 - Row-level security policies on every table
 - Full-text search index on notes
-- Triggers for automatic search_vector updates
+- Triggers for automatic updated_at and search vector updates

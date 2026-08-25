@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/appwrite/client'
-import { ID } from 'appwrite'
+import { createClient } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,10 +13,10 @@ export default function LoginPage() {
   const [isConfigured, setIsConfigured] = useState(false)
 
   useEffect(() => {
-    // Check if Appwrite is configured
+    // Check if Supabase is configured
     setIsConfigured(
-      !!process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT && 
-      !process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT.includes('your_appwrite')
+      !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('your_supabase')
     )
   }, [])
 
@@ -27,8 +26,12 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { account } = createClient()
-      await account.createEmailPasswordSession(email, password)
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) throw error
       window.location.href = '/'
     } catch (err: any) {
       setError(err.message || 'Login failed')
@@ -43,8 +46,12 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { account } = createClient()
-      await account.create(ID.unique(), email, password)
+      const supabase = createClient()
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      if (error) throw error
       setError('Account created. Please sign in.')
     } catch (err: any) {
       setError(err.message || 'Sign up failed')
@@ -61,7 +68,7 @@ export default function LoginPage() {
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
             <p className="font-semibold">Configuration needed</p>
             <p className="text-sm mt-2">
-              Please follow the setup instructions in <code>docs/SETUP.md</code> to configure your Appwrite project.
+              Please follow the setup instructions in <code>docs/SETUP.md</code> to configure your Supabase project.
             </p>
           </div>
         </div>

@@ -1,17 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/appwrite/server'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const { account } = await createClient()
+  const supabase = await createClient()
   
-  try {
-    const user = await account.get()
-    if (!user) {
-      redirect('/login')
-    }
-  } catch {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
     redirect('/login')
   }
 

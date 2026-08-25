@@ -144,9 +144,9 @@ Plain-language version: nothing the AI produces ever replaces what you actually 
 | Layer | Choice | Why |
 |---|---|---|
 | Framework | Next.js (App Router) | Server actions handle API keys server-side; route handlers for the AI calls |
-| Database | Appwrite Databases | String attributes for flexible JSON bodies (up to 4GB), fulltext index for search, document permissions for security |
-| Auth | Appwrite Auth | Ships with permissions integration; no custom session handling |
-| File storage | Appwrite Storage | Audio blobs, private bucket, signed URLs only |
+| Database | Supabase (PostgreSQL) | JSONB attributes for flexible JSON bodies, fulltext search with tsvector, Row-Level Security for data isolation |
+| Auth | Supabase Auth | Ships with Row-Level Security integration; JWT-based session handling |
+| File storage | Supabase Storage | Audio blobs, private bucket, signed URLs only |
 | LLM (primary) | Gemini free tier | Restructuring + enrichment |
 | LLM (fallback) | Groq | Triggered on 429/5xx; also hosts Whisper for the STT cleanup pass |
 | STT (live) | Web Speech API | Zero cost, zero latency, no server round trip |
@@ -155,13 +155,13 @@ Plain-language version: nothing the AI produces ever replaces what you actually 
 
 ### 4.2 Data model
 
-**JSONB translation decision:** Appwrite does not have a native JSON/object attribute type. Flexible fields (templates.fields, notes.position, note_versions.body) are stored as String (longtext) attributes with JSON-stringified content. String attributes support up to 4GB, sufficient for note bodies and template schemas. This preserves flexibility for Phase 4 custom templates. Cost: database-level querying inside JSON is not possible; Phase 5 search uses a concatenated approach.
+**JSONB decision:** PostgreSQL supports native JSONB attributes for flexible fields (templates.fields, notes.position, note_versions.body). This preserves flexibility for Phase 4 custom templates and enables efficient JSON querying. Phase 5 search uses PostgreSQL full-text search with tsvector on concatenated content.
 
 **Collections and attributes:**
 
 ```
-users (Appwrite Auth users collection)
-  $id, email, $createdAt
+users (Supabase Auth users table)
+  id, email, created_at
 
 templates
   $id, user_id ($id from users, null = system preset), name, icon_color,
@@ -243,7 +243,7 @@ These are all client-side and local-first — none of them need a server round t
 | Area | Approach |
 |---|---|
 | API keys | Server-side only. Every AI call goes through a Next.js route handler — no key ever reaches the browser |
-| Data isolation | Appwrite document permissions on every collection. Role.user(userId) for read/update/delete on document creation ensures users can only access their own data |
+| Data isolation | Supabase Row-Level Security (RLS) on every table. User-specific policies ensure users can only access their own data |
 | Audio files | Private storage bucket, short-lived signed URLs, never public paths |
 | Sharing | Random 128-bit token, read-only route, revocable, with an optional expiry. Shared views strip action items and version history by default |
 | Sensitive content | Users may put clinical or personal notes in here. Ship a per-note "don't send to AI" flag that keeps the raw capture local-only, and a clear data-handling page stating that content is sent to a third-party model |
@@ -269,7 +269,7 @@ Design target: **capture always works offline; AI work queues; search degrades g
 | Stack / auto-arrange / resize / collapse / z-index | ✅ Full | All pure client-side state, same sync path as drag |
 | Board theme switch | ✅ Full | Local preference, no server needed at all |
 | Filters | ✅ Full | Run against the local cache |
-| Full-text search | ⚠️ Partial | Appwrite fulltext index on concatenated search field (title + raw_text + body) for online; local index (MiniSearch/FlexSearch) over cached notes for offline |
+| Full-text search | ⚠️ Partial | PostgreSQL full-text search with tsvector on concatenated search field (title + raw_text + body) for online; local index (MiniSearch/FlexSearch) over cached notes for offline |
 | Export MD/TXT | ✅ Full | Client-side generation |
 | Export image | ✅ Full once cached | Canvas-rendering lib (e.g. html2canvas) ships in the app bundle, so it works offline after first load |
 | Sharing | ❌ | Needs the server |
@@ -286,7 +286,7 @@ Design target: **capture always works offline; AI work queues; search degrades g
 | Task tools (Todoist, Linear, Notion) — push action items out | `action_items` is already a first-class collection | Keep `source` and add `external_id` |
 | Bulk import from other note apps | Same restructuring pipeline | Make the restructure job accept a batch, not just one note |
 | Mobile PWA | Service worker + manifest | Keep all capture logic browser-API-based, not desktop-only |
-| Collaboration | `boards` already separate from `notes` | Appwrite has native Realtime which could simplify this when built; don't hardcode `user_id` as the sole ownership check on boards |
+| Collaboration | `boards` already separate from `notes` | Supabase Realtime could simplify this when built; don't hardcode `user_id` as the sole ownership check on boards |
 | Diarization | Paid STT tier | Store the audio blob permanently so old recordings can be reprocessed later |
 | Paid model tier | `model_used` on versions | Make the provider a config value, not a hardcoded client |
 

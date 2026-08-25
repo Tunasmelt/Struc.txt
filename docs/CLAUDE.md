@@ -22,7 +22,7 @@ The phase/gate structure in `PHASES_AND_GATES.md` was written to be model-agnost
 | Writing any feature or bugfix | `test-driven-development` — write the failing test first, matching the phase's exit gate criteria |
 | A bug, test failure, or anything behaving unexpectedly | `systematic-debugging` — reproduce, isolate, diagnose, before proposing a fix |
 | About to check off an exit gate item or claim a phase is done | `verification-before-completion` — run the actual command, show real output, don't assert |
-| Before writing or editing any Gemini, Groq, Appwrite, or Whisper API call | `api-check` — these SDKs and model names drift; don't write from memory |
+| Before writing or editing any Gemini, Groq, Supabase, or Whisper API call | `api-check` — these SDKs and model names drift; don't write from memory |
 | Isolating work on a phase without disturbing the current branch | `using-git-worktrees` |
 | Multiple independent tasks within a phase (e.g. two unrelated template presets) | `dispatching-parallel-agents` or `subagent-driven-development` |
 | A phase's exit gate is fully met and it's time to integrate | `finishing-a-development-branch` |

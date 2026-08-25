@@ -8,8 +8,8 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 0 — completed (exit gate fully met)
-- **Gate status:** All exit gate items met - build succeeds, env vars configured with real Appwrite credentials, dev server running successfully on localhost:3000. Document permissions verification pending Phase 1 implementation.
+- **Phase:** 0 — reverted to Supabase architecture
+- **Gate status:** Reverted from Appwrite back to Supabase. Build status pending verification with Supabase credentials. All Appwrite references removed from codebase and documentation.
 - **Last touched by:** Devin CLI
 - **Last touched:** 2026-08-25
 
@@ -21,25 +21,54 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Board UI/interaction prototype built — `Struc.txt Board.dc.html`, `Struc.txt Site.dc.html`, `tokens.js`, `seed.js`
 - [x] Phase plan and gates defined — `PHASES_AND_GATES.md`
 - [x] Repo scaffolding (Phase 0) — Next.js app with App Router, TypeScript, Tailwind CSS
-- [x] Base collections/attributes — users, templates, notes, note_versions, tags, note_tags, action_items, boards with document permissions
-- [x] Appwrite Auth integration — login/signup page, logout route
+- [x] Base database schema — users, templates, notes, note_versions, tags, note_tags, action_items, boards with Row-Level Security
+- [x] Supabase Auth integration — login/signup page, logout route
 - [x] Environment variable template — `.env.local` with placeholder names
-- [x] SETUP.md — complete Appwrite project setup instructions
-- [x] Architecture pivot — migrated from Supabase to Appwrite (Databases, Auth, Storage)
+- [x] SETUP.md — complete Supabase project setup instructions
+- [x] Architecture reversion — reverted from Appwrite back to Supabase (PostgreSQL, Auth, Storage)
 - [ ] Phase 1+ — see `PHASES_AND_GATES.md`
 
 ---
 
 ## 3. Open questions for Harris
 
-Nothing outstanding. Add items here as they come up — don't let an agent guess on something that should be a one-line question.
+- Need real Supabase project credentials to complete Phase 0 setup
+- Need AI provider API keys (GEMINI_API_KEY, GROQ_API_KEY) for Phase 1+
 
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
 
+### [2026-08-25] — Devin CLI (Architecture Reversion: Appwrite → Supabase)
+- Phase worked on: Architecture reversion from Appwrite back to Supabase
+- What changed:
+  - Removed Appwrite SDKs (appwrite, node-appwrite) and dependencies
+  - Reinstalled Supabase SDKs (@supabase/supabase-js, @supabase/ssr)
+  - Removed Appwrite client helpers (lib/appwrite)
+  - Restored Supabase client helpers (lib/supabase/client.ts, server.ts)
+  - Restored Supabase schema migration (supabase/migrations/001_base_schema.sql)
+  - Updated auth pages back to Supabase Auth (app/login/page.tsx, app/page.tsx, app/auth/logout/route.ts)
+  - Updated .env.local with Supabase environment variables
+  - Updated AGENTS.md stack table and conventions (database, auth, storage, RLS)
+  - Updated noteflow-spec.md back to Supabase references (stack table, data model, security, offline)
+  - Updated PHASES_AND_GATES.md back to Supabase references (Phase 0, Phase 5, Phase 6)
+  - Updated SETUP.md with Supabase setup instructions
+  - Updated CLAUDE.md api-check mapping (Appwrite → Supabase)
+- Gate status at end of session (met / not met, and why):
+  - Build succeeds: ⚠️ pending verification with Supabase credentials
+  - Logged-in user can load empty board page: ⚠️ pending verification with Supabase credentials
+  - RLS enforcement verified: ⚠️ pending Supabase credentials + Phase 1 implementation
+  - No API keys outside .env.local: ✓ met
+- Blockers or open questions:
+  - User needs to create real Supabase project and update .env.local with actual credentials per SETUP.md
+  - User needs to run database migration per SETUP.md
+  - After Supabase setup, user should test login flow and verify RLS is working
+- What the next session should do first:
+  - After user completes SETUP.md steps, verify Phase 0 exit gate items with Supabase
+  - Then proceed to Phase 1 (Paste capture) per PHASES_AND_GATES.md
+
 ### [2026-08-25] — Devin CLI (Phase 0 Completion)
-- Phase worked on: Phase 0 Scaffolding completion
+- Phase worked on: Phase 0 Scaffolding completion (with Appwrite - later reverted)
 - What changed:
   - Updated .env.local with real Appwrite credentials (endpoint, project ID, API key)
   - Verified build succeeds with real credentials (npm run build completed successfully)
@@ -58,6 +87,7 @@ Nothing outstanding. Add items here as they come up — don't let an agent guess
   - Complete SETUP.md steps (create collections, enable auth)
   - Provide AI provider API keys
   - Proceed to Phase 1 (Paste capture) per PHASES_AND_GATES.md
+- Note: This session was later reverted when switching back to Supabase architecture
 
 ### [2026-08-24] — Windsurf SWE-1 (Architecture Pivot)
 - Phase worked on: Architecture pivot from Supabase to Appwrite (Phase 0)

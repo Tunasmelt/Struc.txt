@@ -33,9 +33,9 @@ Build order and gate checklist: `PHASES_AND_GATES.md`. Do not start work outside
 | Layer | Choice |
 |---|---|
 | Framework | Next.js, App Router |
-| Database | Appwrite Databases |
-| Auth | Appwrite Auth + document permissions |
-| File storage | Appwrite Storage (private buckets, signed URLs only) |
+| Database | Supabase (PostgreSQL) |
+| Auth | Supabase Auth + Row-Level Security (RLS) |
+| File storage | Supabase Storage (private buckets, signed URLs only) |
 | LLM — restructuring & enrichment | Gemini (free tier), primary |
 | LLM — fallback | Groq, triggered on 429/5xx from Gemini |
 | Speech-to-text (live) | Web Speech API, browser-native |
@@ -51,11 +51,11 @@ If a phase seems to need something not on this list, that's a signal to check th
 ## 3. Repo conventions
 
 - **Routes / server logic:** All AI provider calls go through server-side route handlers. No API key ever ships to the client. If you find yourself importing a Gemini or Groq SDK into a client component, stop — that's wrong.
-- **Database access:** Appwrite client SDK is designed for direct browser calls with permissions handling security. Do not route ordinary database reads through Next.js server handlers "to be safe" — that's redundant and adds latency. Only AI provider calls require server-side handling.
+- **Database access:** Supabase client SDK supports both direct browser calls and server-side calls. Use `lib/supabase/client.ts` for client components and `lib/supabase/server.ts` for server components. Row-Level Security (RLS) handles permission enforcement on the database side.
 - **Prompts:** Live in one place (`lib/prompts/`), not inlined at call sites. The restructuring prompt is generated *from* the active template's field schema — it is never a static string per template.
 - **Validation:** Every LLM JSON response is parsed through a Zod schema before it's written anywhere. A response that fails validation gets one repair retry (append the validation error to the prompt), then falls back to storing the note unstructured with the raw text intact. It never silently gets discarded.
-- **Migrations:** Appwrite collections are defined via SDK scripts or CLI (appwrite.json), not SQL. Collection/attribute definitions are version-controlled in `lib/appwrite/` or similar. Never modify a collection that has data in production without a migration script.
-- **Env vars:** Reference by name only in code and docs (`GEMINI_API_KEY`, `GROQ_API_KEY`, `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`). Never hardcode a real key anywhere, including in comments, test fixtures, or commit messages.
+- **Migrations:** Supabase migrations are SQL files in `supabase/migrations/`. Never modify a table that has data in production without a migration script. Use the Supabase dashboard for development, but version control all schema changes.
+- **Env vars:** Reference by name only in code and docs (`GEMINI_API_KEY`, `GROQ_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). Never hardcode a real key anywhere, including in comments, test fixtures, or commit messages.
 - **Commits:** One logical change per commit. Reference the phase number, e.g. `phase-2: gemini restructuring pass with zod validation`.
 
 ---
@@ -78,10 +78,10 @@ If a task description ever implies merging these, treat that as a mistake in the
 
 ## 5. What NOT to touch without explicit instruction
 
-- Document permissions — get these wrong and one user can read another user's notes. Always set Role.user(userId) for read/update/delete on document creation.
+- Row-Level Security (RLS) policies — get these wrong and one user can read another user's notes. Always test RLS policies with multiple user accounts before deploying.
 - Anything under a migration that's already been applied.
 - Real-time collaboration, multi-speaker diarization, bulk import, PWA/mobile — all explicitly deferred (P2 in the spec). Don't scaffold these "while you're in there."
-- The raw-capture-is-immutable rule. A restructure or re-run creates a *new* version document. It never edits or deletes `raw_text`.
+- The raw-capture-is-immutable rule. A restructure or re-run creates a *new* version row. It never edits or deletes `raw_text`.
 
 ---
 
@@ -90,6 +90,12 @@ If a task description ever implies merging these, treat that as a mistake in the
 ### Gemini
 - Use the model's structured-output / JSON-schema mode where the SDK supports it, rather than asking for JSON in a plain-text prompt and hoping.
 - Confirm the current model name via the live docs before hardcoding it — free-tier model names get deprecated and renamed.
+
+### Supabase
+- Use the Supabase client SDK for all database operations. The SDK handles connection pooling and automatic type inference.
+- Row-Level Security (RLS) is enforced on the database side — never rely on frontend filtering for security.
+- For server components, use `lib/supabase/server.ts` to get the server client with proper cookie handling.
+- For client components, use `lib/supabase/client.ts` to get the browser client.
 
 ### Windsurf SWE-1 (slow model) — read this before starting any task
 - Work strictly off the current phase's checklist in `PHASES_AND_GATES.md`. Don't self-assign follow-on work.

@@ -19,26 +19,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Phase and gate plan defined (`PHASES_AND_GATES.md`)
 - Agent-facing docs created: `AGENTS.md`, `CLAUDE.md`, `HANDOFF.md`, this file
 - Next.js app scaffolded with App Router, TypeScript, and Tailwind CSS (phase 0)
-- Appwrite client libraries installed (`appwrite`, `node-appwrite`) (phase 0)
-- Base collections/attributes defined: users, templates, notes, note_versions, tags, note_tags, action_items, boards with document permissions (phase 0)
-- Login/signup page with Appwrite Auth integration (phase 0)
+- Supabase client libraries installed (`@supabase/supabase-js`, `@supabase/ssr`) (phase 0)
+- Base database schema defined: users, templates, notes, note_versions, tags, note_tags, action_items, boards with Row-Level Security (phase 0)
+- Login/signup page with Supabase Auth integration (phase 0)
 - Logout route handler (phase 0)
 - Environment variable template in `.env.local` with placeholder names (phase 0)
-- SETUP.md with complete Appwrite project setup instructions (phase 0)
+- SETUP.md with complete Supabase project setup instructions (phase 0)
 
 ### Changed
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)
-- **Architecture pivot:** Migrated backend from Supabase to Appwrite (Databases, Auth, Storage) (phase 0)
-  - Stack updated in AGENTS.md, noteflow-spec.md, PHASES_AND_GATES.md, CLAUDE.md
-  - Data model translated from Postgres tables/columns to Appwrite collections/attributes
-  - JSONB fields translated to String (longtext) attributes with JSON-stringified content (up to 4GB limit)
-  - Full-text search approach changed to Appwrite fulltext index on concatenated search field
-  - Row-level security replaced with Appwrite document permissions (Role.user(userId))
-  - All Supabase scaffolding removed and replaced with Appwrite equivalents
-- Updated `.env.local` with real Appwrite credentials (endpoint, project ID, API key) (phase 0)
-- Verified build succeeds with real Appwrite credentials (phase 0)
-- Dev server successfully running on localhost:3000 with real credentials (phase 0)
-- Phase 0 exit gate fully met (except document permissions verification pending Phase 1) (phase 0)
+- **Architecture reversion:** Reverted backend from Appwrite back to Supabase (PostgreSQL, Auth, Storage) (phase 0)
+  - Stack updated in AGENTS.md, noteflow-spec.md, PHASES_AND_GATES.md, CLAUDE.md, SETUP.md
+  - Data model restored to PostgreSQL tables with JSONB columns
+  - Full-text search restored to PostgreSQL tsvector on concatenated search field
+  - Row-level security restored to PostgreSQL RLS policies
+  - All Appwrite scaffolding removed and replaced with Supabase equivalents
+  - Auth pages updated back to Supabase Auth
+  - Environment variables updated to Supabase format
 
 <!--
 Nothing has been built yet. The next entries should appear once Phase 0 (scaffolding) starts.

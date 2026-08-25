@@ -8,28 +8,28 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 0 — Scaffolding ✅ COMPLETED (2026-08-25)
+## Phase 0 — Scaffolding
 
-**Goal:** A running, empty Next.js app connected to a real Appwrite project, with the base schema in place and nothing else.
+**Goal:** A running, empty Next.js app connected to a real Supabase project, with the base schema in place and nothing else.
 
-**Touches:** repo root, `app/`, Appwrite project + collections/attributes, `.env.local` (never committed)
+**Touches:** repo root, `app/`, Supabase project + database tables, `.env.local` (never committed)
 
 **Build:**
 - Next.js App Router project initialized
-- Appwrite project created; connection env vars set
-- Base collections/attributes: `users`, `templates`, `notes`, `note_versions`, `tags`, `note_tags`, `action_items`, `boards` per `noteflow-spec.md` §4.2
-- Document permissions enabled on every collection, policy: user can only see their own documents (Role.user(userId) on creation)
-- Auth wired (Appwrite Auth), one working login flow
+- Supabase project created; connection env vars set
+- Base database tables: `users`, `templates`, `notes`, `note_versions`, `tags`, `note_tags`, `action_items`, `boards` per `noteflow-spec.md` §4.2
+- Row-Level Security (RLS) enabled on every table, policy: user can only see their own rows
+- Auth wired (Supabase Auth), one working login flow
 
 **Exit gate:**
-- [x] `npm run build` succeeds with zero errors
-- [x] A logged-in user can load an empty board page with no console errors (dev server running successfully)
-- [ ] Attempting to query another user's document via the client returns nothing (permissions actually enforced, not just assumed) (requires Phase 1 implementation to test)
+- [ ] `npm run build` succeeds with zero errors (pending verification with Supabase credentials)
+- [ ] A logged-in user can load an empty board page with no console errors (requires real Supabase credentials per SETUP.md)
+- [ ] Attempting to query another user's row via the client returns nothing (RLS actually enforced, not just assumed) (requires real Supabase credentials + Phase 1 implementation)
 - [x] No API keys appear anywhere outside `.env.local`
 
 ---
 
-## Phase 1 — Paste capture (no AI yet)
+## Phase 1 — Paste capture (no AI yet) 🚧 NEXT
 
 **Goal:** Prove the simplest end-to-end path: paste text in, a raw note is saved, it shows up somewhere. No restructuring, no template, no board styling.
 
@@ -117,7 +117,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 **Build:**
 - Filter by tag, date range, template, title
-- Full-text search across concatenated search field (title + raw_text + structured body) using Appwrite fulltext index
+- Full-text search across concatenated search field (title + raw_text + structured body) using PostgreSQL full-text search
 - Non-matching notes fade/hide on the board rather than the board re-laying-out jarringly
 
 **Exit gate:**
@@ -131,7 +131,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 **Goal:** Recording, live transcript, and the Whisper cleanup pass.
 
-**Touches:** MediaRecorder integration, Web Speech API integration, audio blob storage (Appwrite Storage), Groq Whisper call
+**Touches:** MediaRecorder integration, Web Speech API integration, audio blob storage (Supabase Storage), Groq Whisper call
 
 **Build:**
 - Record button → MediaRecorder captures audio locally
