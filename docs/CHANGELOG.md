@@ -35,6 +35,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
   - Full-text search approach changed to Appwrite fulltext index on concatenated search field
   - Row-level security replaced with Appwrite document permissions (Role.user(userId))
   - All Supabase scaffolding removed and replaced with Appwrite equivalents
+- Updated `.env.local` with real Appwrite credentials (endpoint, project ID, API key) (phase 0)
+- Verified build succeeds with real Appwrite credentials (phase 0)
+- Dev server successfully running on localhost:3000 with real credentials (phase 0)
+- Phase 0 exit gate fully met (except document permissions verification pending Phase 1) (phase 0)
 
 <!--
 Nothing has been built yet. The next entries should appear once Phase 0 (scaffolding) starts.

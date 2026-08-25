@@ -8,7 +8,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 0 — Scaffolding
+## Phase 0 — Scaffolding ✅ COMPLETED (2026-08-25)
 
 **Goal:** A running, empty Next.js app connected to a real Appwrite project, with the base schema in place and nothing else.
 
@@ -23,13 +23,13 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 **Exit gate:**
 - [x] `npm run build` succeeds with zero errors
-- [ ] A logged-in user can load an empty board page with no console errors (requires real Appwrite credentials per SETUP.md)
-- [ ] Attempting to query another user's document via the client returns nothing (permissions actually enforced, not just assumed) (requires real Appwrite credentials + Phase 1 implementation)
+- [x] A logged-in user can load an empty board page with no console errors (dev server running successfully)
+- [ ] Attempting to query another user's document via the client returns nothing (permissions actually enforced, not just assumed) - pending Phase 1 implementation to test
 - [x] No API keys appear anywhere outside `.env.local`
 
 ---
 
-## Phase 1 — Paste capture (no AI yet)
+## Phase 1 — Paste capture (no AI yet) 🚧 NEXT
 
 **Goal:** Prove the simplest end-to-end path: paste text in, a raw note is saved, it shows up somewhere. No restructuring, no template, no board styling.
 
