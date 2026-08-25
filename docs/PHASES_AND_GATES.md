@@ -29,7 +29,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 1 — Paste capture (no AI yet) 🚧 NEXT
+## Phase 1 — Paste capture (no AI yet)
 
 **Goal:** Prove the simplest end-to-end path: paste text in, a raw note is saved, it shows up somewhere. No restructuring, no template, no board styling.
 
