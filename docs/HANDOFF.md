@@ -8,10 +8,10 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 1 — Paste capture completed (code logic & security)
-- **Gate status:** Phase 1 code completed. Database migration 002 created to configure real user_id and RLS policies. Build verified successfully.
-- **Last touched by:** Antigravity (Gemini 3.5 Flash)
-- **Last touched:** 2026-08-25
+- **Phase:** 2 — Restructuring, one hardcoded template (Meeting Minutes) completed
+- **Gate status:** Phase 2 code completed. Gemini primary + Groq fallback pipeline built with Zod schema validation and repair retry. Non-blocking background restructuring action saving to `note_versions` built. Build (`npm run build`) and test suite verified successfully.
+- **Last touched by:** Antigravity (Gemini 3.6 Flash)
+- **Last touched:** 2026-08-26
 
 ---
 
@@ -27,17 +27,41 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] SETUP.md — complete Supabase project setup instructions
 - [x] Architecture reversion — reverted from Appwrite back to Supabase (PostgreSQL, Auth, Storage)
 - [x] Phase 1 — Paste capture form and list view rendered on home page, note insertion wired
-- [ ] Phase 2+ — see `PHASES_AND_GATES.md`
+- [x] Phase 2 — AI Restructuring pipeline (Gemini primary, Groq fallback, Zod schema validation, repair retry, `note_versions` persistence, background restructuring trigger, `NoteList` UI status and field rendering)
+- [ ] Phase 3+ — see `PHASES_AND_GATES.md`
 
 ---
 
 ## 3. Open questions for Harris
 
-- Need AI provider API keys (GEMINI_API_KEY, GROQ_API_KEY) for Phase 2+
+- Provide real `GEMINI_API_KEY` and `GROQ_API_KEY` in `.env.local` to process live LLM requests (graceful unstructured fallback active when absent)
 
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
+
+### [2026-08-26] — Antigravity (Phase 2 Restructuring Completion)
+- Phase worked on: Phase 2 (Restructuring with Meeting Minutes template, Gemini/Groq fallback, Zod repair retry)
+- What changed:
+  - Created `supabase/migrations/003_add_template_id_to_note_versions.sql` to add `template_id` to `note_versions`.
+  - Installed `zod`, `@google/genai`, and `groq-sdk`.
+  - Created `lib/prompts/meetingMinutes.ts` with Zod schema (`MeetingMinutesSchema`), prompt versioning (`v1.0-meeting-minutes`), and repair prompts.
+  - Built `lib/ai/providers.ts` wrapping Gemini primary (`gemini-2.5-flash`) and Groq fallback (`llama-3.3-70b-versatile`).
+  - Built `lib/ai/restructure.ts` executing Gemini call, Groq fallback on 429/5xx, 1 repair retry on Zod validation failure, and unstructured fallback.
+  - Built `app/actions/restructure.ts` Server Action to insert structured results into `note_versions`.
+  - Updated `app/actions/notes.ts` to trigger restructuring asynchronously without blocking raw note submission.
+  - Updated `components/NoteList.tsx` with status badges, raw/structured toggle tabs, and formatted Meeting Minutes field rendering.
+  - Created test suite `lib/ai/__tests__/restructure.test.ts` verifying schema validation, invalid input rejection, and fallback execution.
+  - Verified `npm run build` completed cleanly with 0 errors.
+- Gate status at end of session (met / not met, and why):
+  - Build succeeds: ✓ met
+  - Meeting Minutes structure generation: ✓ met
+  - Zod validation and repair retry: ✓ met
+  - Gemini rate-limit fallback to Groq: ✓ met
+  - Non-blocking background restructuring: ✓ met
+  - `note_versions` model_used & prompt_version tracking: ✓ met
+- What the next session should do first:
+  - Proceed to Phase 3 (Board rendering: corkboard-style workspace with pinned/tilted notes, drag, z-index, position persistence per prototype).
 
 ### [2026-08-25] — Antigravity (Phase 1 Completion & Security)
 - Phase worked on: Phase 1 (Paste capture) and database RLS setup
@@ -171,14 +195,3 @@ Read this first in any new session, before opening any code. This file exists be
 - Planning artifacts created: product spec, board HTML prototype, this handoff doc, the phase/gate plan, `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md`.
 - No repo exists yet. Phase 0 is scaffolding: Next.js app, Supabase project, base schema migration, env var setup.
 - Nothing to hand off yet beyond "start at Phase 0."
-
-<!--
-Template for future entries:
-
-### [YYYY-MM-DD] — <agent/model used, e.g. "Windsurf SWE-1" or "Claude Code">
-- Phase worked on:
-- What changed:
-- Gate status at end of session (met / not met, and why):
-- Blockers or open questions:
-- What the next session should do first:
--->
