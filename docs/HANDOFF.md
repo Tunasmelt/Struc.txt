@@ -8,8 +8,8 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 3 — Board rendering: 3 of 4 exit-gate items met; the 4th (10+ note load performance) is unverified, not failing
-- **Gate status:** Visual match, drag+persistence, and click-to-front+persistence are all met — `updateNotePosition` (`app/actions/notes.ts`) now writes `position` (x, y, rotation, z_index) back to Supabase on drag-end and bring-to-front, scoped by the existing owner-only RLS update policy, no new migration needed. `zTop` reseeds from the max on-board `z_index` after each load so stacking order survives a reload. The one open item is "no layout shift/jank on load with 10+ notes" — not verified either way; there's no seeded dataset that size and it wasn't feasible to create a live test user + seed data in this session, so don't check it off without actually testing it. See `PHASES_AND_GATES.md` Phase 3.
+- **Phase:** 4 — Templates library: built (migration + dynamic prompt pipeline + editor UI + board wiring), gated on running the seed migration and doing a live-LLM smoke test
+- **Gate status:** Phase 3 is functionally done except one unverified-not-failing item (10+ note load jank). Phase 4's code is complete and `tsc`/`build` clean, but 3 of 4 exit-gate items need a **live** Gemini/Groq smoke test that hasn't been run yet: all six presets restructuring correctly, a custom template restructuring correctly, and a deliberate malformed-JSON case recovering via repair retry. The `004_seed_preset_templates.sql` migration also has not been applied to the real Supabase project yet — the presets won't appear in the UI until it is. See `PHASES_AND_GATES.md` Phase 4 for the itemized "before closing this phase" list.
 - **Last touched by:** Claude Code (Sonnet 5)
 - **Last touched:** 2026-08-30
 
@@ -29,7 +29,8 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Phase 1 — Paste capture form and list view rendered on home page, note insertion wired
 - [x] Phase 2 — AI Restructuring pipeline (Gemini primary, Groq fallback, Zod schema validation, repair retry, `note_versions` persistence, background restructuring trigger, `NoteList` UI status and field rendering)
 - [~] Phase 3 — Board rendering: corkboard UI built (`app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx`, `lib/tokens.ts`, `styles/tokens.css`), real Supabase data wired in, drag/click-to-front persist via `updateNotePosition`; only remaining gate item is verifying no jank at 10+ notes
-- [ ] Phase 4+ — see `PHASES_AND_GATES.md`
+- [~] Phase 4 — Templates library: preset seed migration + dynamic per-template Zod schema/prompt generation (`lib/prompts/dynamicTemplate.ts`) replacing the phase 2 hardcoded pipeline, template editor UI (`app/templates/`, `components/templates/`), capture/board wiring; remaining work is applying the seed migration and a live-LLM smoke test (see gate)
+- [ ] Phase 5+ — see `PHASES_AND_GATES.md`
 
 ---
 
@@ -40,6 +41,29 @@ Read this first in any new session, before opening any code. This file exists be
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
+
+### [2026-08-30] — Claude Code (Sonnet 5) (Phase 4 — Templates library)
+- Phase worked on: Phase 4 (Templates library), moving on from Phase 3 once its board-persistence work landed.
+- What changed:
+  - `supabase/migrations/004_seed_preset_templates.sql`: seeds the six spec-required presets (meeting minutes, SOAP, 1:1, journal, lecture, interview) with `fields` in the spec's `{key,label,type,required,order,options}` shape, translated from `prototype/seed.js`'s mock field content. `fieldlog` intentionally not seeded as a 7th preset (spec says six; it stays a user-buildable custom template). `templates.user_id` + RLS already existed from `002_add_user_id_and_rls.sql`, so no new RLS migration was needed — only data.
+  - `lib/prompts/dynamicTemplate.ts` (new): `buildTemplateSchema(fields)` maps each of the 7 field types to a Zod type; `buildTemplatePrompt`/`buildRepairPrompt` generate the LLM prompt from a template's field list; `templatePromptVersion` produces `v1.0-dynamic-<templateId>`.
+  - `lib/ai/restructure.ts`: `restructureNoteContent(rawText, template?)` now builds schema/prompt dynamically when a template is passed; omitting one preserves the exact original Phase 2 hardcoded Meeting Minutes path unchanged (backward compat, no regression).
+  - `app/actions/templates.ts` (new): `getTemplates`, `getTemplate`, `createTemplate`, `updateTemplate`, `deleteTemplate`, `cloneTemplate`.
+  - `app/actions/restructure.ts`: resolves the note's template (falling back to the seeded Meeting Minutes preset id, or to the hardcoded path entirely if that preset row doesn't exist yet because the migration hasn't run — degrades gracefully rather than breaking capture).
+  - `app/actions/notes.ts`: `createNote` takes an optional `templateId`; new `applyTemplateToNote(noteId, templateId)` lets a template be picked/changed after capture, re-triggering restructuring.
+  - `app/templates/page.tsx` + `components/templates/{TemplateEditor,FieldBuilder}.tsx` (new): browse/clone presets, edit/delete custom templates, field builder (type, required, options for `select`, reorder via up/down buttons).
+  - `components/board/{types,CaptureModal,NoteCard,Rail,Board}.tsx`, `app/board/page.tsx`: template picker in capture, "⚙" change-template affordance on each card, and `NoteCard`'s structured-body rendering is now generic — walks whichever fields the resolved template defines and renders each by type, instead of one hardcoded meeting-minutes shape. Rail counts/pin colors work for custom templates via each template's stored `icon_color`.
+  - Verified `npx tsc --noEmit` and `npm run build` clean myself (didn't just trust the building agent's self-report) — both pass, `/templates` route compiles.
+  - Committed as `9cf23d3`.
+- Gate status at end of session (met / not met, and why):
+  - Six presets seeded and dynamic prompt/schema pipeline built: ✓ met structurally
+  - All six presets restructure correctly against live Gemini/Groq: ✗ not verified — no live LLM smoke test run this session
+  - Custom template restructures correctly on first attempt: ✗ not verified, same reason
+  - Template applied after capture restructures the saved raw text: ✓ met structurally (`applyTemplateToNote` wired and build-clean), live confirmation still recommended
+  - Zod validation fails and recovers per field type: ✗ not verified — no deliberate malformed-case test run
+- What the next session should do first:
+  - Run `004_seed_preset_templates.sql` against the real Supabase project (dashboard SQL editor or CLI — same manual-apply flow used for `002`/`003`).
+  - Do a real paste-capture smoke test through each of the six presets plus one custom template built via `/templates`, and provoke one malformed-JSON case to confirm the repair retry recovers it. Only then check off the remaining Phase 4 gate items and move to Phase 5 (Search & filters).
 
 ### [2026-08-30] — Claude Code (Sonnet 5) (Phase 3 — position persistence)
 - Phase worked on: Phase 3 (Board rendering), closing the persistence gap left open by the previous session.

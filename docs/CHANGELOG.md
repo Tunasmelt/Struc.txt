@@ -40,6 +40,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Board UI implemented: `app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx` — pinned/tilted note cards styled from the prototype's token set, template-filter rail with live counts, cross-note open-action-items list, and a paste-capture modal wired to `createNote` (phase 3)
 - Ported prototype design tokens into `lib/tokens.ts` and `styles/tokens.css`; `app/layout.tsx` now loads the prototype's fonts via `next/font/google` and the `data-mode="light"` default (phase 3)
 - Added `updateNotePosition` server action (`app/actions/notes.ts`) persisting drag and bring-to-front position/z-index changes to `notes.position`, closing the Phase 3 persistence gap (phase 3)
+- Seeded the six spec-required preset templates via `supabase/migrations/004_seed_preset_templates.sql` (meeting minutes, SOAP, 1:1, journal, lecture, interview) (phase 4)
+- Built dynamic per-template prompt/schema generation (`lib/prompts/dynamicTemplate.ts`), replacing the phase 2 hardcoded-only Meeting Minutes pipeline while preserving its exact behavior when no template is supplied (phase 4)
+- Added template CRUD + clone server actions (`app/actions/templates.ts`) and a template editor UI (`app/templates/page.tsx`, `components/templates/TemplateEditor.tsx`, `components/templates/FieldBuilder.tsx`) supporting clone-a-preset and build-from-scratch with a 7-field-type builder (phase 4)
+- Added `applyTemplateToNote` server action and a per-card template picker so a template can be chosen before capture or applied/changed after (phase 4)
+- Generalized `NoteCard`'s structured-body rendering and `Rail`'s per-template counts/colors to work with any template's field list, not just the hardcoded meeting-minutes shape (phase 4)
 
 ### Changed
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)

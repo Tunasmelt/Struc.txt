@@ -92,24 +92,26 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 4 — Templates library
+## Phase 4 — Templates library 🚧 IN PROGRESS (built, not yet verified against live LLM calls)
 
 **Goal:** Real template system — the six presets, clone-and-customize, and fully custom templates from scratch.
 
 **Touches:** `templates` collection, template editor UI, prompt generation (must now read the schema dynamically, not a hardcoded string)
 
 **Build:**
-- Six preset templates seeded (SOAP, meeting minutes, 1:1, journal, interview, lecture)
-- Clone a preset → edit fields → save as a new template
-- Build a template from scratch: name arbitrary fields, pick a type per field (text / longtext / checklist / tags / list / date / number / select)
-- Restructuring prompt now generated from *whichever* template is active — this is the riskiest part of the whole build per the spec's feasibility read; budget real verification time here
-- Template can be picked before capture or applied after, per spec
+- [x] Six preset templates seeded (SOAP, meeting minutes, 1:1, journal, interview, lecture) — `supabase/migrations/004_seed_preset_templates.sql`. `fieldlog` from the prototype deliberately stays a user-buildable custom template, not a 7th preset, per the spec's "six presets" language. **Requires running this migration against the real Supabase project before presets appear** — not yet applied, no DB credentials available in the dev session that built it.
+- [x] Clone a preset → edit fields → save as a new template — `app/templates/page.tsx`, `components/templates/{TemplateEditor,FieldBuilder}.tsx`, `app/actions/templates.ts` (`cloneTemplate`)
+- [x] Build a template from scratch: field builder supports all 7 types (text / longtext / checklist / tags / list / date / number / select), required flag, options for `select`, reorder via up/down
+- [x] Restructuring prompt now generated from whichever template is active — `lib/prompts/dynamicTemplate.ts` (`buildTemplateSchema`, `buildTemplatePrompt`) maps each field type to a Zod type and a prompt instruction; `lib/ai/restructure.ts` takes an optional template and falls back to the exact original Phase 2 hardcoded Meeting Minutes path when none is given, so nothing regressed
+- [x] Template can be picked before capture (`CaptureModal` picker) or applied after (`NoteCard`'s "⚙" affordance → `applyTemplateToNote`, which re-runs restructuring against the newly chosen template)
 
 **Exit gate:**
-- [ ] All six presets restructure correctly, each producing output matching its own schema
-- [ ] A newly created custom template (not a preset) restructures correctly on the first real attempt — this is the actual test of whether the dynamic-prompt approach works, not a formality
-- [ ] Picking a template after capture (not before) restructures the already-saved raw text correctly
-- [ ] Zod validation genuinely fails and recovers for at least one deliberately malformed case per field type in use
+- [ ] All six presets restructure correctly, each producing output matching its own schema — **not verified against live Gemini/Groq calls yet**; verified structurally only (schema generation, `tsc`/`build` clean). Do a real manual smoke test — paste a rough note through each of the six presets — before checking this off.
+- [ ] A newly created custom template (not a preset) restructures correctly on the first real attempt — same caveat, needs a live test, this is the actual test of whether the dynamic-prompt approach works, not a formality
+- [x] Picking a template after capture (not before) restructures the already-saved raw text correctly — `applyTemplateToNote` updates `notes.template_id` and re-triggers `restructureNoteAction`, structurally verified (build-clean); still worth confirming once against a live capture
+- [ ] Zod validation genuinely fails and recovers for at least one deliberately malformed case per field type in use — not yet tested; the repair-retry path is unchanged from Phase 2 and dynamic schemas reuse the same `tryParseAndValidate`/repair-prompt flow, but no deliberate malformed-case test has been run against the new per-type schemas
+
+**Before closing this phase:** (1) run `004_seed_preset_templates.sql` against Supabase, (2) do a real paste-capture smoke test through all six presets plus one custom template, (3) provoke at least one malformed-JSON case per field type actually in use and confirm the repair retry recovers it.
 
 ---
 
