@@ -6,23 +6,28 @@ import Rail from '@/components/board/Rail'
 import Board from '@/components/board/Board'
 import CaptureModal from '@/components/board/CaptureModal'
 import { getNotes, updateNotePosition } from '@/app/actions/notes'
-import { AppearanceMode, TemplateType } from '@/lib/tokens'
-import { BoardNote, RawNote, enrichNote } from '@/components/board/types'
+import { getTemplates } from '@/app/actions/templates'
+import { AppearanceMode } from '@/lib/tokens'
+import { BoardNote, RawNote, ResolvedTemplate, enrichNote, toResolvedTemplate } from '@/components/board/types'
 
 export default function BoardPage() {
   const [appearance, setAppearance] = useState<AppearanceMode>('light')
   const [snapGrid, setSnapGrid] = useState(false)
   const [query, setQuery] = useState('')
-  const [filterTmpl, setFilterTmpl] = useState<TemplateType | null>(null)
+  const [filterTmpl, setFilterTmpl] = useState<string | null>(null)
   const [captureOpen, setCaptureOpen] = useState(false)
   const [notes, setNotes] = useState<BoardNote[]>([])
+  const [templates, setTemplates] = useState<ResolvedTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [zTop, setZTop] = useState(10)
 
   const loadNotes = useCallback(async () => {
     try {
-      const data = (await getNotes()) as RawNote[]
-      const enriched = data.map(enrichNote)
+      const [data, templateRows] = await Promise.all([getNotes() as Promise<RawNote[]>, getTemplates()])
+      const resolvedTemplates = templateRows.map(toResolvedTemplate)
+      const templatesById = Object.fromEntries(resolvedTemplates.map((t) => [t.id, t]))
+      setTemplates(resolvedTemplates)
+      const enriched = data.map((n) => enrichNote(n, templatesById))
       setNotes(enriched)
       const maxZ = enriched.reduce((max, n) => Math.max(max, n.position.z_index ?? 0), 0)
       setZTop((prev) => Math.max(prev, maxZ))
@@ -80,7 +85,7 @@ export default function BoardPage() {
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
-      if (filterTmpl && note.tmpl !== filterTmpl) return false
+      if (filterTmpl && note.tmpl?.id !== filterTmpl) return false
       if (query) {
         const haystack = [note.title || '', note.raw_text, JSON.stringify(note.latestVersion?.body || {})]
           .join(' ')
@@ -107,18 +112,20 @@ export default function BoardPage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <Rail notes={notes} filterTmpl={filterTmpl} onFilterTmplChange={setFilterTmpl} />
+        <Rail notes={notes} templates={templates} filterTmpl={filterTmpl} onFilterTmplChange={setFilterTmpl} />
         <Board
           notes={filteredNotes}
           totalCount={notes.length}
           loading={loading}
           snapGrid={snapGrid}
+          templates={templates}
           onPositionChange={handlePositionChange}
           onBringToFront={handleBringToFront}
+          onTemplateApplied={loadNotes}
         />
       </div>
 
-      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={loadNotes} />
+      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={loadNotes} templates={templates} />
     </div>
   )
 }

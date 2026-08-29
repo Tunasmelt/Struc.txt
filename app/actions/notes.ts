@@ -4,9 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { restructureNoteAction } from './restructure'
 
-export async function createNote(rawText: string) {
+export async function createNote(rawText: string, templateId?: string | null) {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     throw new Error('User not authenticated')
@@ -26,6 +26,7 @@ export async function createNote(rawText: string) {
       position: { x: 0, y: 0, rotation: 0, z_index: 0 },
       search: rawText,
       user_id: user.id,
+      template_id: templateId ?? null,
     })
     .select()
     .single()
@@ -35,13 +36,54 @@ export async function createNote(rawText: string) {
     throw new Error(`Failed to create note: ${error.message}`)
   }
 
-  // Trigger restructuring as a background task (non-blocking per Phase 2 spec §4.4)
-  restructureNoteAction(data.id, rawText).catch((err) => {
+  // Trigger restructuring as a background task (non-blocking per Phase 2 spec §4.4).
+  // If no template was chosen, this falls back to the Meeting Minutes preset
+  // (see restructureNoteAction) to preserve Phase 1/2's always-restructure behavior.
+  restructureNoteAction(data.id, rawText, templateId ?? null).catch((err) => {
     console.error(`Background restructuring failed for note ${data.id}:`, err)
   })
 
   revalidatePath('/')
   return data
+}
+
+/** Applies (or re-applies) a template to an already-captured note and
+ *  triggers a fresh restructuring pass against that template — used by the
+ *  "pick/re-pick a template after capture" affordance on the board. */
+export async function applyTemplateToNote(noteId: string, templateId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { data: note, error: fetchError } = await supabase
+    .from('notes')
+    .select('id, raw_text')
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !note) {
+    console.error('Supabase fetch note for template apply error:', fetchError)
+    throw new Error(`Failed to load note: ${fetchError?.message || 'not found'}`)
+  }
+
+  const { error: updateError } = await supabase
+    .from('notes')
+    .update({ template_id: templateId })
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+
+  if (updateError) {
+    console.error('Supabase update note template error:', updateError)
+    throw new Error(`Failed to set note template: ${updateError.message}`)
+  }
+
+  const version = await restructureNoteAction(noteId, note.raw_text, templateId)
+  revalidatePath('/')
+  return version
 }
 
 export async function updateNotePosition(

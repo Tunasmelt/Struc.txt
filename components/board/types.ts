@@ -1,4 +1,6 @@
-import { TemplateType } from '@/lib/tokens'
+import { DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
+import { TemplateField } from '@/lib/prompts/dynamicTemplate'
+import { TemplateRow } from '@/app/actions/templates'
 
 export interface NoteVersion {
   id: string
@@ -29,27 +31,45 @@ export interface RawNote {
   note_versions?: NoteVersion[]
 }
 
+/** A resolved template shape used purely for board rendering: name, pin
+ *  colour and field list, regardless of whether it's a preset or a
+ *  user-created custom template. */
+export interface ResolvedTemplate {
+  id: string
+  name: string
+  pin: string
+  fields: TemplateField[]
+}
+
 /** A note enriched with the info the board needs to render a card: the
- *  latest structured version (if restructuring has completed), a resolved
- *  width, and a template key used purely for the pin colour + label since
- *  `templates` rows aren't joined into getNotes() yet. */
+ *  latest structured version (if restructuring has completed) and the
+ *  resolved template (looked up from the `templates` table by id). */
 export interface BoardNote extends RawNote {
-  tmpl: TemplateType | null
+  tmpl: ResolvedTemplate | null
   latestVersion: NoteVersion | null
 }
 
-export function enrichNote(note: RawNote): BoardNote {
+export function toResolvedTemplate(row: TemplateRow): ResolvedTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    pin: row.icon_color || DEFAULT_TEMPLATE_PIN,
+    fields: row.fields || [],
+  }
+}
+
+export function enrichNote(note: RawNote, templatesById: Record<string, ResolvedTemplate>): BoardNote {
   const versions = note.note_versions || []
   const latestVersion = versions.length
     ? versions.reduce((a, b) => (a.created_at > b.created_at ? a : b))
     : null
-  // The restructuring pipeline only produces "meeting minutes" shaped bodies
-  // right now (lib/prompts/meetingMinutes.ts) — templates aren't joined into
-  // getNotes() yet, so this is the best signal available for the pin colour.
-  const tmpl: TemplateType | null = latestVersion ? 'meeting' : null
+
+  const templateId = note.template_id ?? latestVersion?.template_id ?? null
+  const tmpl = templateId ? templatesById[templateId] ?? null : null
+
   return {
     ...note,
     tmpl,
-    latestVersion
+    latestVersion,
   }
 }

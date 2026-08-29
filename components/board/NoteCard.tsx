@@ -1,23 +1,28 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { SPACE, MODE_CARD, TEMPLATES, TemplateType, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
-import { BoardNote } from './types'
+import { SPACE, MODE_CARD, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
+import { BoardNote, ResolvedTemplate } from './types'
+import { TemplateField } from '@/lib/prompts/dynamicTemplate'
+import { applyTemplateToNote } from '@/app/actions/notes'
 
 interface NoteCardProps {
   note: BoardNote
   snapGrid: boolean
+  templates: ResolvedTemplate[]
   onPositionChange: (id: string, position: { x: number; y: number }) => void
   onBringToFront: (id: string) => void
+  onTemplateApplied: () => void
 }
 
-interface MeetingBody {
-  summary?: string
-  attendees?: string[]
-  key_decisions?: string[]
-  discussion_points?: { topic: string; details: string }[]
-  action_items?: { item: string; assignee?: string | null; due_date?: string | null }[]
-  fallback_unstructured?: boolean
+const labelStyle = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: '9.5px',
+  letterSpacing: '.11em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--ink-2)',
+  display: 'block',
+  marginBottom: 3
 }
 
 function fmtDate(d: string | null) {
@@ -27,23 +32,102 @@ function fmtDate(d: string | null) {
   return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-export default function NoteCard({ note, snapGrid, onPositionChange, onBringToFront }: NoteCardProps) {
+/** Renders one field's value according to its declared type. Values are
+ *  read defensively since the LLM output shape isn't guaranteed 1:1 with
+ *  the template even after Zod validation defaults are applied. */
+function FieldValue({ field, value }: { field: TemplateField; value: unknown }) {
+  if (value === undefined || value === null || value === '') return null
+
+  switch (field.type) {
+    case 'tags':
+      if (!Array.isArray(value) || value.length === 0) return null
+      return (
+        <div className="flex flex-wrap gap-1">
+          {value.map((v, i) => (
+            <i
+              key={i}
+              style={{
+                fontStyle: 'normal',
+                fontSize: 11,
+                background: 'var(--card-chip)',
+                border: '1px solid var(--card-line)',
+                padding: '2px 8px',
+                borderRadius: 99
+              }}
+            >
+              {String(v)}
+            </i>
+          ))}
+        </div>
+      )
+    case 'list':
+      if (!Array.isArray(value) || value.length === 0) return null
+      return (
+        <ul style={{ fontSize: '12.6px', lineHeight: 1.5, paddingLeft: 14, margin: 0 }}>
+          {value.map((v, i) => (
+            <li key={i}>{String(v)}</li>
+          ))}
+        </ul>
+      )
+    case 'checklist': {
+      const items = Array.isArray(value) ? (value as { item?: string; done?: boolean }[]) : []
+      if (items.length === 0) return null
+      return (
+        <ul style={{ fontSize: '12.6px', lineHeight: 1.6, paddingLeft: 0, margin: 0, listStyle: 'none' }}>
+          {items.map((it, i) => (
+            <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              <span
+                aria-hidden
+                style={{
+                  marginTop: 2,
+                  width: 11,
+                  height: 11,
+                  flex: 'none',
+                  borderRadius: 3,
+                  border: '1px solid var(--card-line)',
+                  background: it.done ? 'var(--card-chip)' : 'transparent'
+                }}
+              />
+              <span style={{ textDecoration: it.done ? 'line-through' : 'none', opacity: it.done ? 0.65 : 1 }}>
+                {it.item}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    case 'longtext':
+    case 'text':
+    case 'date':
+    case 'number':
+    case 'select':
+    default:
+      return <div style={{ fontSize: '12.8px', lineHeight: 1.45 }}>{String(value)}</div>
+  }
+}
+
+export default function NoteCard({ note, snapGrid, templates, onPositionChange, onBringToFront, onTemplateApplied }: NoteCardProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [width, setWidth] = useState<number>(SPACE.noteW)
   const [position, setPosition] = useState({ x: note.position.x, y: note.position.y })
+  const [applying, setApplying] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const cardRef = useRef<HTMLElement>(null)
   const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, moved: false })
 
-  const tmplKey: TemplateType | null = note.tmpl
-  const tmpl = tmplKey ? TEMPLATES[tmplKey] : null
+  const tmpl = note.tmpl
   const pinColor = tmpl?.pin ?? DEFAULT_TEMPLATE_PIN
   const templateName = tmpl?.name ?? 'Untitled capture'
 
-  const body = note.latestVersion?.body as MeetingBody | undefined
-  const openActions = (body?.action_items || []).length
+  const body = note.latestVersion?.body as Record<string, unknown> | undefined
+  const sortedFields = tmpl ? [...tmpl.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) : []
+  const checklistField = sortedFields.find((f) => f.type === 'checklist')
+  const openActions = checklistField
+    ? ((body?.[checklistField.key] as { done?: boolean }[] | undefined) || []).filter((i) => !i.done).length
+    : 0
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-act]')) return
@@ -91,6 +175,20 @@ export default function NoteCard({ note, snapGrid, onPositionChange, onBringToFr
     ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
   }
 
+  const handleApplyTemplate = async (templateId: string) => {
+    if (!templateId || applying) return
+    setApplying(true)
+    try {
+      await applyTemplateToNote(note.id, templateId)
+      onTemplateApplied()
+    } catch (err) {
+      console.error('Failed to apply template:', err)
+    } finally {
+      setApplying(false)
+      setPickerOpen(false)
+    }
+  }
+
   return (
     <article
       ref={cardRef}
@@ -133,35 +231,81 @@ export default function NoteCard({ note, snapGrid, onPositionChange, onBringToFr
           />
           {templateName} · {fmtDate(note.created_at)}
         </span>
-        <button
-          data-act="collapse"
-          onClick={(e) => {
-            e.stopPropagation()
-            setCollapsed((c) => !c)
-          }}
-          aria-label={collapsed ? 'Expand note' : 'Collapse note'}
-          title={collapsed ? 'Expand note' : 'Collapse note'}
-          className="grid flex-none place-items-center rounded"
-          style={{
-            width: 18,
-            height: 18,
-            color: 'var(--ink-2)',
-            opacity: 0.75,
-            transform: collapsed ? 'rotate(-90deg)' : 'none'
-          }}
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <path
-              d="M2 3.5L5 6.5L8 3.5"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <span className="flex items-center gap-1 flex-none">
+          <button
+            data-act="template"
+            onClick={(e) => {
+              e.stopPropagation()
+              setPickerOpen((o) => !o)
+            }}
+            aria-label="Change template"
+            title="Pick / change template"
+            className="grid place-items-center rounded"
+            style={{ width: 18, height: 18, color: 'var(--ink-2)', opacity: 0.75, fontSize: 11 }}
+          >
+            ⚙
+          </button>
+          <button
+            data-act="collapse"
+            onClick={(e) => {
+              e.stopPropagation()
+              setCollapsed((c) => !c)
+            }}
+            aria-label={collapsed ? 'Expand note' : 'Collapse note'}
+            title={collapsed ? 'Expand note' : 'Collapse note'}
+            className="grid place-items-center rounded"
+            style={{
+              width: 18,
+              height: 18,
+              color: 'var(--ink-2)',
+              opacity: 0.75,
+              transform: collapsed ? 'rotate(-90deg)' : 'none'
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <path
+                d="M2 3.5L5 6.5L8 3.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </span>
       </div>
+
+      {pickerOpen && (
+        <div
+          data-act="template-picker"
+          style={{ margin: '6px 0 0', display: 'flex', gap: 6, alignItems: 'center' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <select
+            defaultValue={tmpl?.id ?? ''}
+            disabled={applying}
+            onChange={(e) => handleApplyTemplate(e.target.value)}
+            style={{
+              flex: 1,
+              fontSize: 11,
+              background: 'var(--card-chip)',
+              border: '1px solid var(--card-line)',
+              borderRadius: 6,
+              padding: '3px 5px'
+            }}
+          >
+            <option value="" disabled>
+              {applying ? 'Restructuring…' : 'Pick a template…'}
+            </option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <h3
         style={{
@@ -181,7 +325,7 @@ export default function NoteCard({ note, snapGrid, onPositionChange, onBringToFr
           <div style={{ height: 1, background: 'var(--card-rule)', margin: '0 -16px 12px' }} />
 
           <div>
-            {!body ? (
+            {!body || !tmpl ? (
               <p style={{ fontSize: '12.8px', lineHeight: 1.45, color: 'var(--ink-2)' }}>
                 {note.raw_text.length > 220 ? note.raw_text.slice(0, 220) + '…' : note.raw_text}
                 <br />
@@ -189,102 +333,16 @@ export default function NoteCard({ note, snapGrid, onPositionChange, onBringToFr
               </p>
             ) : (
               <>
-                {body.summary && (
-                  <div style={{ marginBottom: 10 }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '9.5px',
-                        letterSpacing: '.11em',
-                        textTransform: 'uppercase',
-                        color: 'var(--ink-2)',
-                        display: 'block',
-                        marginBottom: 3
-                      }}
-                    >
-                      Summary
-                    </span>
-                    <div style={{ fontSize: '12.8px', lineHeight: 1.45 }}>{body.summary}</div>
-                  </div>
-                )}
-
-                {!!body.attendees?.length && (
-                  <div style={{ marginBottom: 10 }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '9.5px',
-                        letterSpacing: '.11em',
-                        textTransform: 'uppercase',
-                        color: 'var(--ink-2)',
-                        display: 'block',
-                        marginBottom: 3
-                      }}
-                    >
-                      Attendees
-                    </span>
-                    <div className="flex flex-wrap gap-1">
-                      {body.attendees.map((p, i) => (
-                        <i
-                          key={i}
-                          style={{
-                            fontStyle: 'normal',
-                            fontSize: 11,
-                            background: 'var(--card-chip)',
-                            border: '1px solid var(--card-line)',
-                            padding: '2px 8px',
-                            borderRadius: 99
-                          }}
-                        >
-                          {p}
-                        </i>
-                      ))}
+                {sortedFields.map((field) => {
+                  const value = body[field.key]
+                  if (value === undefined || value === null || value === '') return null
+                  return (
+                    <div key={field.key} style={{ marginBottom: 10 }}>
+                      <span style={labelStyle}>{field.label}</span>
+                      <FieldValue field={field} value={value} />
                     </div>
-                  </div>
-                )}
-
-                {!!body.key_decisions?.length && (
-                  <div style={{ marginBottom: 10 }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '9.5px',
-                        letterSpacing: '.11em',
-                        textTransform: 'uppercase',
-                        color: 'var(--ink-2)',
-                        display: 'block',
-                        marginBottom: 3
-                      }}
-                    >
-                      Decisions
-                    </span>
-                    <ul style={{ fontSize: '12.6px', lineHeight: 1.5, paddingLeft: 14, margin: 0 }}>
-                      {body.key_decisions.map((d, i) => (
-                        <li key={i}>{d}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {!!body.discussion_points?.length &&
-                  body.discussion_points.map((p, i) => (
-                    <div key={i} style={{ marginBottom: 10 }}>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '9.5px',
-                          letterSpacing: '.11em',
-                          textTransform: 'uppercase',
-                          color: 'var(--ink-2)',
-                          display: 'block',
-                          marginBottom: 3
-                        }}
-                      >
-                        {p.topic}
-                      </span>
-                      <div style={{ fontSize: '12.8px', lineHeight: 1.45 }}>{p.details}</div>
-                    </div>
-                  ))}
+                  )
+                })}
               </>
             )}
           </div>

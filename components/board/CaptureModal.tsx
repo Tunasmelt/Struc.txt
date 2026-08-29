@@ -2,18 +2,21 @@
 
 import { useState } from 'react'
 import { createNote } from '@/app/actions/notes'
+import { ResolvedTemplate } from './types'
 
 interface CaptureModalProps {
   open: boolean
   onClose: () => void
   onCreated: () => void
+  templates: ResolvedTemplate[]
 }
 
 /** Paste-capture only. The prototype also offers a "Record" tab, but audio
  *  capture/transcription isn't wired up anywhere in this repo yet — scoping
  *  this modal to paste keeps it honest about what actually works. */
-export default function CaptureModal({ open, onClose, onCreated }: CaptureModalProps) {
+export default function CaptureModal({ open, onClose, onCreated, templates }: CaptureModalProps) {
   const [raw, setRaw] = useState('')
+  const [templateId, setTemplateId] = useState<string>('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,7 +27,7 @@ export default function CaptureModal({ open, onClose, onCreated }: CaptureModalP
     setWorking(true)
     setError(null)
     try {
-      await createNote(raw)
+      await createNote(raw, templateId || null)
       setRaw('')
       onCreated()
       onClose()
@@ -71,6 +74,32 @@ export default function CaptureModal({ open, onClose, onCreated }: CaptureModalP
         </header>
 
         <div className="p-5">
+          <label
+            className="mb-1.5 block text-[10.5px] uppercase"
+            style={{ fontFamily: 'var(--font-mono)', letterSpacing: '.08em', color: 'var(--muted)' }}
+          >
+            Template (optional — can be applied after capture too)
+          </label>
+          <select
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="mb-3 w-full rounded-[10px] p-[10px]"
+            style={{
+              background: 'var(--well)',
+              border: '1px solid var(--chrome-line)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12.5,
+              color: 'var(--chalk)'
+            }}
+          >
+            <option value="">No template (Meeting Minutes default)</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+
           <textarea
             value={raw}
             onChange={(e) => setRaw(e.target.value)}

@@ -1,13 +1,14 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { TEMPLATES, TemplateType, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
-import { BoardNote } from './types'
+import { DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
+import { BoardNote, ResolvedTemplate } from './types'
 
 interface RailProps {
   notes: BoardNote[]
-  filterTmpl: TemplateType | null
-  onFilterTmplChange: (tmpl: TemplateType | null) => void
+  templates: ResolvedTemplate[]
+  filterTmpl: string | null
+  onFilterTmplChange: (tmplId: string | null) => void
   className?: string
 }
 
@@ -27,24 +28,28 @@ function railButtonStyle(active: boolean): CSSProperties {
   }
 }
 
-export default function Rail({ notes, filterTmpl, onFilterTmplChange, className = '' }: RailProps) {
-  const templateEntries = Object.entries(TEMPLATES) as [TemplateType, (typeof TEMPLATES)[TemplateType]][]
+/** Finds the first checklist-typed field on a note's template so the
+ *  "open action items" rail works for any template, not just meeting minutes. */
+function checklistItemsFor(note: BoardNote): { item: string; done?: boolean }[] {
+  const checklistField = note.tmpl?.fields.find((f) => f.type === 'checklist')
+  if (!checklistField) return []
+  const value = note.latestVersion?.body?.[checklistField.key]
+  return Array.isArray(value) ? (value as { item: string; done?: boolean }[]) : []
+}
 
-  const templates = [
-    { key: null as TemplateType | null, name: 'All notes', pin: DEFAULT_TEMPLATE_PIN, count: notes.length }
+export default function Rail({ notes, templates, filterTmpl, onFilterTmplChange, className = '' }: RailProps) {
+  const templateRows = [
+    { id: null as string | null, name: 'All notes', pin: DEFAULT_TEMPLATE_PIN, count: notes.length }
   ].concat(
-    templateEntries.map(([key, t]) => ({
-      key,
-      name: t.name + ('custom' in t && t.custom ? ' ✎' : ''),
+    templates.map((t) => ({
+      id: t.id,
+      name: t.name,
       pin: t.pin,
-      count: notes.filter((n) => n.tmpl === key).length
+      count: notes.filter((n) => n.tmpl?.id === t.id).length
     }))
   )
 
-  const openActionItems = notes.reduce((total, n) => {
-    const items = (n.latestVersion?.body?.action_items as { item: string }[] | undefined) || []
-    return total + items.length
-  }, 0)
+  const openItems = notes.flatMap((n) => checklistItemsFor(n).filter((i) => !i.done).map((i) => ({ note: n, item: i })))
 
   return (
     <aside
@@ -64,11 +69,11 @@ export default function Rail({ notes, filterTmpl, onFilterTmplChange, className 
         Templates
       </h4>
       <div className="flex flex-col gap-px">
-        {templates.map((t) => (
+        {templateRows.map((t) => (
           <button
-            key={t.key ?? '__all'}
-            onClick={() => onFilterTmplChange(t.key)}
-            style={railButtonStyle(t.key ? filterTmpl === t.key : !filterTmpl)}
+            key={t.id ?? '__all'}
+            onClick={() => onFilterTmplChange(t.id)}
+            style={railButtonStyle(t.id ? filterTmpl === t.id : !filterTmpl)}
           >
             <span
               className="inline-block flex-none rounded-full"
@@ -86,44 +91,39 @@ export default function Rail({ notes, filterTmpl, onFilterTmplChange, className 
       >
         Open action items
       </h4>
-      {openActionItems === 0 ? (
+      {openItems.length === 0 ? (
         <div className="py-4 text-sm" style={{ color: 'var(--muted)' }}>
           No open action items
         </div>
       ) : (
         <div>
-          {notes.flatMap((n) => {
-            const items =
-              (n.latestVersion?.body?.action_items as { item: string; due_date?: string | null }[] | undefined) || []
-            return items.map((a, i) => (
-              <div
-                key={`${n.id}-${i}`}
+          {openItems.map(({ note, item }, i) => (
+            <div
+              key={`${note.id}-${i}`}
+              style={{
+                padding: '8px 8px 8px 6px',
+                borderBottom: '1px solid var(--rule)',
+                fontSize: 13,
+                lineHeight: 1.4,
+                color: 'var(--rail-fg)'
+              }}
+            >
+              {item.item}
+              <em
                 style={{
-                  padding: '8px 8px 8px 6px',
-                  borderBottom: '1px solid var(--rule)',
-                  fontSize: 13,
-                  lineHeight: 1.4,
-                  color: 'var(--rail-fg)'
+                  display: 'block',
+                  fontStyle: 'normal',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--muted)',
+                  marginTop: 3,
+                  letterSpacing: '.04em'
                 }}
               >
-                {a.item}
-                <em
-                  style={{
-                    display: 'block',
-                    fontStyle: 'normal',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 10,
-                    color: 'var(--muted)',
-                    marginTop: 3,
-                    letterSpacing: '.04em'
-                  }}
-                >
-                  {n.title || 'Untitled note'}
-                  {a.due_date ? ` · due ${a.due_date}` : ''}
-                </em>
-              </div>
-            ))
-          })}
+                {note.title || 'Untitled note'}
+              </em>
+            </div>
+          ))}
         </div>
       )}
     </aside>

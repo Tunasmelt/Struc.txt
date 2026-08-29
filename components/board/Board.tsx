@@ -1,18 +1,20 @@
 'use client'
 
 import NoteCard from './NoteCard'
-import { BoardNote } from './types'
+import { BoardNote, ResolvedTemplate } from './types'
 
 interface BoardProps {
   notes: BoardNote[]
   totalCount: number
   loading: boolean
   snapGrid: boolean
+  templates: ResolvedTemplate[]
   onPositionChange: (id: string, position: { x: number; y: number }) => void
   onBringToFront: (id: string) => void
+  onTemplateApplied: () => void
 }
 
-export default function Board({ notes, totalCount, loading, snapGrid, onPositionChange, onBringToFront }: BoardProps) {
+export default function Board({ notes, totalCount, loading, snapGrid, templates, onPositionChange, onBringToFront, onTemplateApplied }: BoardProps) {
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center" style={{ background: 'var(--felt)' }}>
@@ -80,8 +82,10 @@ export default function Board({ notes, totalCount, loading, snapGrid, onPosition
               key={note.id}
               note={note}
               snapGrid={snapGrid}
+              templates={templates}
               onPositionChange={onPositionChange}
               onBringToFront={onBringToFront}
+              onTemplateApplied={onTemplateApplied}
             />
           ))
         )}
