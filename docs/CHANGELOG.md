@@ -46,7 +46,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Added `applyTemplateToNote` server action and a per-card template picker so a template can be chosen before capture or applied/changed after (phase 4)
 - Generalized `NoteCard`'s structured-body rendering and `Rail`'s per-template counts/colors to work with any template's field list, not just the hardcoded meeting-minutes shape (phase 4)
 
+### Fixed
+- `app/globals.css` used Tailwind v3's `@tailwind base/components/utilities` directives while the project runs Tailwind v4, which silently produced zero utility CSS — every Tailwind-styled page (login/signup included) rendered unstyled. Switched to `@import "tailwindcss"`.
+
 ### Changed
+- Restyled `app/login/page.tsx` to match `prototype/Struc.txt Site.dc.html`'s auth screen (brand header, brass CTA, login/signup toggle, magic-link option) instead of the generic Tailwind placeholder from phase 0 scaffolding; still fully wired to real Supabase auth (password + magic link)
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)
 - **Architecture reversion:** Reverted backend from Appwrite back to Supabase (PostgreSQL, Auth, Storage) (phase 0)
   - Stack updated in AGENTS.md, noteflow-spec.md, PHASES_AND_GATES.md, CLAUDE.md, SETUP.md
