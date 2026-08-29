@@ -68,23 +68,27 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 3 — Board rendering
+## Phase 3 — Board rendering 🚧 IN PROGRESS (rendering done, persistence pending)
 
 **Goal:** Replace the plain list with the real corkboard, matching `prototype/Struc.txt Board.dc.html` — pinned/tilted notes, drag, z-index, position persistence.
 
 **Touches:** board page/components, `notes.position` (x, y, rotation, z_index)
 
 **Build:**
-- Notes render pinned and tilted, styled per template (color/pin from the prototype's token set)
-- Drag to reposition; position persists across reload
-- Click or drag brings a note to front (z-index management per spec §4.5)
-- Basic empty state
+- [x] Notes render pinned and tilted, styled per template (color/pin from the prototype's token set) — `app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal}.tsx`, tokens ported to `lib/tokens.ts` / `styles/tokens.css`
+- [x] Drag to reposition, click/drag brings a note to front (in-memory only — see gate below)
+- [x] Basic empty state, plus template-filter rail with live counts and a cross-note open-action-items list
+- [x] Notes/structured versions loaded from Supabase (`notes` + `note_versions`) via `enrichNote`, not mock data
+- [x] Paste-capture entry point wired into the board (Topbar → `CaptureModal` → existing `createNote` action)
+- [ ] Drag position/z-index writes back to `notes.position` in Supabase — **not built yet**, no `updateNotePosition` server action exists
 
 **Exit gate:**
-- [ ] Visual side-by-side against the prototype HTML — same pin/tilt/paper feel, not a generic card grid
-- [ ] Dragging a note, reloading the page, shows it in the same place
-- [ ] Clicking a note behind another brings it to front, and that order survives a reload
-- [ ] No layout shift/jank on load with 10+ notes on the board
+- [x] Visual side-by-side against the prototype HTML — same pin/tilt/paper feel, not a generic card grid
+- [ ] Dragging a note, reloading the page, shows it in the same place — **fails today**: position is local React state only, resets on reload
+- [ ] Clicking a note behind another brings it to front, and that order survives a reload — front-bringing works, survival does not
+- [ ] No layout shift/jank on load with 10+ notes on the board — not yet load-tested at that count
+
+**Next step before this phase can close:** add an `updateNotePosition` server action (x, y, rotation, z_index) and call it on drag-end/click, matching the RLS-scoped pattern already used by `app/actions/notes.ts`.
 
 ---
 
@@ -190,7 +194,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 **Goal:** Stack, auto-arrange, resize, collapse, board themes, duplicate/delete — the interaction set already proven in `docs/noteflow-board-prototype.html`.
 
-**Touches:** board component (position/z-index/collapsed/width fields already exist from Phase 3's schema)
+**Touches:** board component (position/z-index exist on `notes.position` jsonb from Phase 0; **collapsed/width/pinned/archived do not exist yet** — confirmed absent from `supabase/migrations/001_base_schema.sql` during the Phase 3 UI pass, so this phase must add a migration for them before building the interactions, not just wire up UI)
 
 **Build:**
 - Stack all (toggle, snapshots layout, visible-notes-only per active filters)

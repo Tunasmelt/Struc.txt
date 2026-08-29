@@ -8,10 +8,10 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 2 — Restructuring, one hardcoded template (Meeting Minutes) completed
-- **Gate status:** Phase 2 code completed. Gemini primary + Groq fallback pipeline built with Zod schema validation and repair retry. Non-blocking background restructuring action saving to `note_versions` built. Build (`npm run build`) and test suite verified successfully.
-- **Last touched by:** Antigravity (Gemini 3.6 Flash)
-- **Last touched:** 2026-08-26
+- **Phase:** 3 — Board rendering: UI/visual portion built and fixed, position persistence not yet built
+- **Gate status:** Phase 3 rendering exit-gate items met (pinned/tilted styled cards matching the prototype, drag, click-to-front, template-filter rail, empty state, real Supabase data via `enrichNote`). Persistence exit-gate items **not met**: drag/z-index changes are local React state only — no `updateNotePosition` server action exists, so layout does not survive a reload. See `PHASES_AND_GATES.md` Phase 3 for the itemized gate.
+- **Last touched by:** Claude Code (Sonnet 5) — picked up an interrupted Devin AI session that had run out of credits mid-build
+- **Last touched:** 2026-08-30
 
 ---
 
@@ -28,7 +28,8 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Architecture reversion — reverted from Appwrite back to Supabase (PostgreSQL, Auth, Storage)
 - [x] Phase 1 — Paste capture form and list view rendered on home page, note insertion wired
 - [x] Phase 2 — AI Restructuring pipeline (Gemini primary, Groq fallback, Zod schema validation, repair retry, `note_versions` persistence, background restructuring trigger, `NoteList` UI status and field rendering)
-- [ ] Phase 3+ — see `PHASES_AND_GATES.md`
+- [~] Phase 3 — Board rendering: corkboard UI built (`app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx`, `lib/tokens.ts`, `styles/tokens.css`), real Supabase data wired in, drag/click-to-front work in-session; position/z-index persistence to the database is the remaining gap
+- [ ] Phase 4+ — see `PHASES_AND_GATES.md`
 
 ---
 
@@ -39,6 +40,26 @@ Read this first in any new session, before opening any code. This file exists be
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
+
+### [2026-08-30] — Claude Code (Sonnet 5) (Phase 3 Board UI — recovery + completion of rendering)
+- Phase worked on: Phase 3 (Board rendering). Picked up mid-phase after a Devin AI session ran out of credits, leaving the board partially built and non-compiling.
+- What changed:
+  - Ported the prototype's design tokens (`prototype/tokens.js`) into `lib/tokens.ts` and `styles/tokens.css`; `app/layout.tsx` now imports `styles/tokens.css` and loads the prototype's fonts via `next/font/google` (replaced a hand-written `<head>` font-link injection, which isn't managed correctly by the App Router across navigations) plus the `data-mode="light"` default.
+  - Fixed a `useState(SPACE.noteW)` type-inference bug in `components/board/NoteCard.tsx` that broke `tsc` on resize (`setWidth` expected `number`, got the literal type `262`).
+  - Fixed a broken contract between `components/board/Rail.tsx` / `components/board/Topbar.tsx` (which expected `notes`, `filterTmpl`, `onFilterTmplChange`, `onOpenCapture` props) and their parent, which hadn't been updated to supply them — `Rail` had hardcoded zero counts and Topbar's "New capture" button was dead. Lifted notes/filter/capture state into `app/board/page.tsx` and wired it through.
+  - Added `components/board/types.ts` (`BoardNote`/`RawNote` types, `enrichNote` helper resolving each note's latest `note_versions` row) so the board reads real Supabase data instead of prototype mock data (`prototype/seed.js`), consistent with the schema already built in Phase 0–2.
+  - Rebuilt `components/board/NoteCard.tsx` to match the prototype's card anatomy: template-colored pin dot + date, collapsible header, structured body (summary/attendees/decisions/discussion points) once a `note_versions` row exists, raw-text fallback with a "Restructuring…" state otherwise, open-action-item count in the footer, drag, resize handle.
+  - Added `components/board/CaptureModal.tsx` wiring the Topbar's "New capture" action to the existing `createNote` server action (paste-only — no audio pipeline exists yet, that's Phase 6).
+  - `components/board/Rail.tsx` now shows live per-template note counts and a cross-note open-action-items list sourced from `note_versions[].body.action_items`.
+  - Verified `npx tsc --noEmit` and `npm run build` both clean, all routes including `/board` generate. Confirmed `npm run lint` fails for a pre-existing, unrelated reason: Next 16.3.2 removed the `next lint` subcommand and there's no `eslint.config.js` in the repo — worth a separate ESLint flat-config setup task.
+  - Committed as `5a4800a`.
+- Gate status at end of session (met / not met, and why):
+  - Visual match to prototype: ✓ met (pinned/tilted styled cards, not a generic grid)
+  - Drag reposition + click-to-front: ✓ met, in-memory only
+  - Position/z-index persists across reload: ✗ not met — no `updateNotePosition` server action exists; this is the concrete remaining Phase 3 gap
+  - No jank with 10+ notes: not yet tested at that count
+- What the next session should do first:
+  - Add an `updateNotePosition` server action (x, y, rotation, z_index) following the RLS-scoped pattern in `app/actions/notes.ts`, call it on drag-end and on bring-to-front, then re-verify the two persistence gate items before calling Phase 3 done and moving to Phase 4 (Templates library). Note only the "meeting minutes" template is actually restructured today — Rail counts for the other five preset templates will read 0 until Phase 4 builds the dynamic-schema pipeline.
 
 ### [2026-08-26] — Antigravity (Phase 2 Restructuring Completion)
 - Phase worked on: Phase 2 (Restructuring with Meeting Minutes template, Gemini/Groq fallback, Zod repair retry)

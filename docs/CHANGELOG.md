@@ -37,6 +37,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Updated `createNote` server action (`app/actions/notes.ts`) to initiate background restructuring without blocking note creation (phase 2)
 - Enhanced `NoteList` component (`components/NoteList.tsx`) with status badges ("Restructuring...", "Structured"), raw ↔ structured toggle, model/prompt version metadata, and formatted Meeting Minutes field rendering (phase 2)
 - Added restructuring unit and integration tests (`lib/ai/__tests__/restructure.test.ts`) (phase 2)
+- Board UI implemented: `app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx` — pinned/tilted note cards styled from the prototype's token set, template-filter rail with live counts, cross-note open-action-items list, and a paste-capture modal wired to `createNote` (phase 3)
+- Ported prototype design tokens into `lib/tokens.ts` and `styles/tokens.css`; `app/layout.tsx` now loads the prototype's fonts via `next/font/google` and the `data-mode="light"` default (phase 3)
 
 ### Changed
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)
@@ -48,3 +50,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
   - All Appwrite scaffolding removed and replaced with Supabase equivalents
   - Auth pages updated back to Supabase Auth
   - Environment variables updated to Supabase format
+
+### Fixed
+- Recovered an interrupted Devin AI session on the board UI (phase 3): fixed a `useState` type-inference bug in `NoteCard.tsx` that broke resize under `tsc`, and reconnected `Rail.tsx`/`Topbar.tsx` to their parent page after they'd gained required props (`notes`, `filterTmpl`, `onFilterTmplChange`, `onOpenCapture`) with no caller supplying them, which had left template counts at zero and the "New capture" button dead
+- Replaced a hand-written `<head>` Google Fonts injection in `app/layout.tsx` with `next/font/google`, avoiding duplicate/conflicting head tags across App Router navigations (phase 3)
