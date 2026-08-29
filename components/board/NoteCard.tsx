@@ -1,18 +1,22 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SPACE, MODE_CARD, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
-import { BoardNote, ResolvedTemplate } from './types'
+import { BoardNote, checklistFor, tagsFor } from './types'
 import { TemplateField } from '@/lib/prompts/dynamicTemplate'
-import { applyTemplateToNote } from '@/app/actions/notes'
 
 interface NoteCardProps {
   note: BoardNote
   snapGrid: boolean
-  templates: ResolvedTemplate[]
+  collapsed: boolean
+  width: number
+  stacked: boolean
+  onCollapseToggle: () => void
+  onResize: (w: number) => void
   onPositionChange: (id: string, position: { x: number; y: number }) => void
   onBringToFront: (id: string) => void
-  onTemplateApplied: () => void
+  onOpen: (id: string) => void
+  onContextMenu: (id: string, x: number, y: number) => void
 }
 
 const labelStyle = {
@@ -32,9 +36,6 @@ function fmtDate(d: string | null) {
   return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-/** Renders one field's value according to its declared type. Values are
- *  read defensively since the LLM output shape isn't guaranteed 1:1 with
- *  the template even after Zod validation defaults are applied. */
 function FieldValue({ field, value }: { field: TemplateField; value: unknown }) {
   if (value === undefined || value === null || value === '') return null
 
@@ -106,17 +107,34 @@ function FieldValue({ field, value }: { field: TemplateField; value: unknown }) 
   }
 }
 
-export default function NoteCard({ note, snapGrid, templates, onPositionChange, onBringToFront, onTemplateApplied }: NoteCardProps) {
+export default function NoteCard({
+  note,
+  snapGrid,
+  collapsed,
+  width,
+  stacked,
+  onCollapseToggle,
+  onResize,
+  onPositionChange,
+  onBringToFront,
+  onOpen,
+  onContextMenu
+}: NoteCardProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [width, setWidth] = useState<number>(SPACE.noteW)
+  const [isHovering, setIsHovering] = useState(false)
   const [position, setPosition] = useState({ x: note.position.x, y: note.position.y })
-  const [applying, setApplying] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
 
   const cardRef = useRef<HTMLElement>(null)
   const dragRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0, moved: false })
+  const resizeRef = useRef({ startX: 0, startW: width })
+
+  // Keep local position in sync when the note's server-side position changes
+  // out from under us (stack/auto-arrange/restore), but not mid-drag.
+  useEffect(() => {
+    if (!isDragging) setPosition({ x: note.position.x, y: note.position.y })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.position.x, note.position.y])
 
   const tmpl = note.tmpl
   const pinColor = tmpl?.pin ?? DEFAULT_TEMPLATE_PIN
@@ -124,10 +142,9 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
 
   const body = note.latestVersion?.body as Record<string, unknown> | undefined
   const sortedFields = tmpl ? [...tmpl.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) : []
-  const checklistField = sortedFields.find((f) => f.type === 'checklist')
-  const openActions = checklistField
-    ? ((body?.[checklistField.key] as { done?: boolean }[] | undefined) || []).filter((i) => !i.done).length
-    : 0
+  const actions = checklistFor(note)
+  const openActions = actions.filter((i) => !i.done).length
+  const tags = tagsFor(note)
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-act]')) return
@@ -156,18 +173,22 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
     cardRef.current?.releasePointerCapture(e.pointerId)
     if (dragRef.current.moved) {
       onPositionChange(note.id, position)
+    } else {
+      onOpen(note.id)
     }
   }
 
   const handleResizeStart = (e: React.PointerEvent) => {
     e.stopPropagation()
+    resizeRef.current = { startX: e.clientX, startW: width }
     setIsResizing(true)
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
 
   const handleResizeMove = (e: React.PointerEvent) => {
     if (!isResizing) return
-    setWidth((w) => Math.max(SPACE.noteWMin, Math.min(SPACE.noteWMax, w + e.movementX)))
+    const w = Math.max(SPACE.noteWMin, Math.min(SPACE.noteWMax, resizeRef.current.startW + (e.clientX - resizeRef.current.startX)))
+    onResize(w)
   }
 
   const handleResizeEnd = (e: React.PointerEvent) => {
@@ -175,23 +196,17 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
     ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
   }
 
-  const handleApplyTemplate = async (templateId: string) => {
-    if (!templateId || applying) return
-    setApplying(true)
-    try {
-      await applyTemplateToNote(note.id, templateId)
-      onTemplateApplied()
-    } catch (err) {
-      console.error('Failed to apply template:', err)
-    } finally {
-      setApplying(false)
-      setPickerOpen(false)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === ' ') {
+      e.preventDefault()
+      onOpen(note.id)
     }
   }
 
   return (
     <article
       ref={cardRef}
+      data-note={note.id}
       tabIndex={0}
       role="button"
       style={{
@@ -204,15 +219,24 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
         color: 'var(--ink)',
         padding: MODE_CARD.padding,
         borderRadius: MODE_CARD.radius,
-        border: '1px solid var(--card-line)',
-        boxShadow: isDragging ? 'var(--shadow-note-drag)' : 'var(--shadow-note)',
-        transition: isDragging || isResizing ? 'none' : 'var(--t-note)',
+        border: `1px solid ${note.pinned ? 'var(--brass)' : 'var(--card-line)'}`,
+        transform: isDragging ? 'scale(1.02)' : isHovering ? 'translateY(-2px)' : 'none',
+        boxShadow: isDragging ? 'var(--shadow-note-drag)' : isHovering ? 'var(--shadow-note-hover)' : 'var(--shadow-note)',
+        transition: isDragging || isResizing ? 'none' : stacked ? 'var(--t-stacked)' : 'transform .16s ease, box-shadow .16s ease, width .16s ease',
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none'
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onMouseEnter={() => !isDragging && setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+      onKeyDown={handleKeyDown}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onBringToFront(note.id)
+        onContextMenu(note.id, e.clientX, e.clientY)
+      }}
     >
       <div
         className="flex items-center justify-between gap-1.5 overflow-hidden"
@@ -232,24 +256,26 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
           {templateName} · {fmtDate(note.created_at)}
         </span>
         <span className="flex items-center gap-1 flex-none">
-          <button
-            data-act="template"
-            onClick={(e) => {
-              e.stopPropagation()
-              setPickerOpen((o) => !o)
-            }}
-            aria-label="Change template"
-            title="Pick / change template"
-            className="grid place-items-center rounded"
-            style={{ width: 18, height: 18, color: 'var(--ink-2)', opacity: 0.75, fontSize: 11 }}
-          >
-            ⚙
-          </button>
+          {note.pinned && (
+            <span
+              title="Pinned — ignored by stack and auto-arrange"
+              style={{
+                fontSize: 9,
+                letterSpacing: '.1em',
+                color: 'var(--brass-text)',
+                border: '1px solid var(--brass)',
+                borderRadius: 99,
+                padding: '1px 6px'
+              }}
+            >
+              PIN
+            </span>
+          )}
           <button
             data-act="collapse"
             onClick={(e) => {
               e.stopPropagation()
-              setCollapsed((c) => !c)
+              onCollapseToggle()
             }}
             aria-label={collapsed ? 'Expand note' : 'Collapse note'}
             title={collapsed ? 'Expand note' : 'Collapse note'}
@@ -275,37 +301,6 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
           </button>
         </span>
       </div>
-
-      {pickerOpen && (
-        <div
-          data-act="template-picker"
-          style={{ margin: '6px 0 0', display: 'flex', gap: 6, alignItems: 'center' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <select
-            defaultValue={tmpl?.id ?? ''}
-            disabled={applying}
-            onChange={(e) => handleApplyTemplate(e.target.value)}
-            style={{
-              flex: 1,
-              fontSize: 11,
-              background: 'var(--card-chip)',
-              border: '1px solid var(--card-line)',
-              borderRadius: 6,
-              padding: '3px 5px'
-            }}
-          >
-            <option value="" disabled>
-              {applying ? 'Restructuring…' : 'Pick a template…'}
-            </option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <h3
         style={{
@@ -351,6 +346,14 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
             className="flex flex-wrap items-center gap-1.5"
             style={{ marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--card-rule)' }}
           >
+            {tags.map((t) => (
+              <span
+                key={t}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-2)', background: 'var(--card-chip)', padding: '3px 8px', borderRadius: 99 }}
+              >
+                #{t}
+              </span>
+            ))}
             {openActions > 0 && (
               <span
                 style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: 'var(--ink-2)' }}
@@ -367,7 +370,7 @@ export default function NoteCard({ note, snapGrid, templates, onPositionChange, 
             onPointerMove={handleResizeMove}
             onPointerUp={handleResizeEnd}
             className="absolute grid place-items-center"
-            style={{ right: 4, bottom: 4, width: 16, height: 16, color: 'var(--ink-2)', cursor: 'nwse-resize', opacity: 0.35 }}
+            style={{ right: 4, bottom: 4, width: 16, height: 16, color: 'var(--ink-2)', cursor: 'nwse-resize', opacity: isHovering ? 0.9 : 0.35 }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" style={{ display: 'block' }}>
               <path d="M12.5 5.5L5.5 12.5M12.5 9.5L9.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

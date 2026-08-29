@@ -258,6 +258,22 @@ input::placeholder, textarea::placeholder {
   }
 }
 
+/* ---------- Board interactive hovers ---------- */
+.nf-ctx-item:hover {
+  background: var(--hover);
+}
+.nf-ctx-danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+.nf-btn:hover {
+  background: var(--hover-btn);
+  border-color: var(--border-hover);
+}
+.nf-rail-btn:hover {
+  background: var(--hover);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

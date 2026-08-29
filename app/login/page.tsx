@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Appearance, applyAppearance, getStoredAppearance, storeAppearance } from '@/lib/appearance'
+import AppearanceToggle from '@/components/AppearanceToggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +61,17 @@ function ghostBtnFull(disabled: boolean): React.CSSProperties {
 }
 
 export default function LoginPage() {
-  const [screen, setScreen] = useState<Screen>('login')
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams()
+  const [screen, setScreen] = useState<Screen>(searchParams.get('mode') === 'signup' ? 'signup' : 'login')
+  const [appearance, setAppearance] = useState<Appearance>('light')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -73,6 +87,16 @@ export default function LoginPage() {
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('your_supabase')
     )
   }, [])
+
+  useEffect(() => {
+    setAppearance(getStoredAppearance())
+  }, [])
+
+  const changeAppearance = (mode: Appearance) => {
+    setAppearance(mode)
+    applyAppearance(mode)
+    storeAppearance(mode)
+  }
 
   const switchScreen = (next: Screen) => {
     setScreen(next)
@@ -147,7 +171,7 @@ export default function LoginPage() {
         overflow: 'auto',
       }}
     >
-      <header style={{ borderBottom: '1px solid var(--chrome-line)' }}>
+      <header style={{ borderBottom: '1px solid var(--chrome-line)', position: 'sticky', top: 0, background: 'var(--chrome)', zIndex: 20 }}>
         <div
           style={{
             maxWidth: 1120,
@@ -156,29 +180,33 @@ export default function LoginPage() {
             height: 68,
             display: 'flex',
             alignItems: 'center',
-            gap: 10,
+            gap: 18,
           }}
         >
-          <span
-            style={{
-              display: 'grid',
-              placeItems: 'center',
-              width: 30,
-              height: 30,
-              border: '1px solid var(--card-line)',
-              borderRadius: 8,
-              background: 'var(--card-bg)',
-              flex: 'none',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M3 3.5h6.5M3 7h10M3 10.5h5" stroke="var(--ink-2)" strokeWidth="1.6" strokeLinecap="round" />
-              <rect x="10.5" y="9.2" width="2.6" height="3.6" rx="0.5" fill="var(--brass)" />
-            </svg>
-          </span>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19, letterSpacing: '-.03em', color: 'var(--chalk)' }}>
-            NoteFlow
-          </span>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                width: 30,
+                height: 30,
+                border: '1px solid var(--card-line)',
+                borderRadius: 8,
+                background: 'var(--card-bg)',
+                flex: 'none',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 3.5h6.5M3 7h10M3 10.5h5" stroke="var(--ink-2)" strokeWidth="1.6" strokeLinecap="round" />
+                <rect x="10.5" y="9.2" width="2.6" height="3.6" rx="0.5" fill="var(--brass)" />
+              </svg>
+            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19, letterSpacing: '-.03em', color: 'var(--chalk)' }}>
+              Struc<span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', color: 'var(--brass-text)' }}>.txt</span>
+            </span>
+          </Link>
+          <div style={{ flex: 1 }} />
+          <AppearanceToggle value={appearance} onChange={changeAppearance} />
         </div>
       </header>
 

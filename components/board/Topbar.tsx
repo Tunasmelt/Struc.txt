@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { AppearanceMode } from '@/lib/tokens'
 
 interface TopbarProps {
@@ -10,6 +11,26 @@ interface TopbarProps {
   query: string
   onQueryChange: (query: string) => void
   onOpenCapture: () => void
+  stacked: boolean
+  hasSnapshot: boolean
+  onToggleStack: () => void
+  onAutoArrange: () => void
+  onRestore: () => void
+  onToggleHelp: () => void
+  onExport: (fmt: 'image' | 'md' | 'txt' | 'pdf') => void
+}
+
+const btnBase = {
+  border: '1px solid var(--chrome-line)',
+  borderRadius: 8,
+  padding: '8px 13px',
+  fontWeight: 600 as const,
+  fontSize: 13,
+  background: 'var(--chrome-2)',
+  color: 'var(--chalk)',
+  transition: 'var(--t-btn)',
+  whiteSpace: 'nowrap' as const,
+  flex: 'none' as const
 }
 
 export default function Topbar({
@@ -19,8 +40,26 @@ export default function Topbar({
   onSnapGridChange,
   query,
   onQueryChange,
-  onOpenCapture
+  onOpenCapture,
+  stacked,
+  hasSnapshot,
+  onToggleStack,
+  onAutoArrange,
+  onRestore,
+  onToggleHelp,
+  onExport
 }: TopbarProps) {
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [])
+
   return (
     <div
       className="flex items-center gap-3.5 px-[18px] h-[60px] border-b flex-wrap"
@@ -124,23 +163,23 @@ export default function Topbar({
       {/* Board Controls */}
       <div className="flex gap-1.5 items-center flex-none">
         <button
-          className="px-3 py-1.5 text-sm rounded transition-colors hover:bg-[var(--hover-btn)] hover:border-[var(--border-hover)]"
+          className="nf-btn px-3 py-1.5 text-sm rounded"
+          onClick={onToggleStack}
           style={{
-            border: '1px solid var(--chrome-line)',
-            color: 'var(--chalk)'
+            border: `1px solid ${stacked ? 'var(--brass)' : 'var(--chrome-line)'}`,
+            color: stacked ? 'var(--brass-text)' : 'var(--chalk)'
           }}
         >
-          Stack
+          {stacked ? 'Unstack' : 'Stack all'}
         </button>
-        <button
-          className="px-3 py-1.5 text-sm rounded transition-colors hover:bg-[var(--hover-btn)] hover:border-[var(--border-hover)]"
-          style={{
-            border: '1px solid var(--chrome-line)',
-            color: 'var(--chalk)'
-          }}
-        >
+        <button className="nf-btn px-3 py-1.5 text-sm rounded" onClick={onAutoArrange} style={{ border: '1px solid var(--chrome-line)', color: 'var(--chalk)' }}>
           Auto-arrange
         </button>
+        {hasSnapshot && (
+          <button className="nf-btn px-3 py-1.5 text-sm rounded" onClick={onRestore} style={{ border: '1px solid var(--chrome-line)', color: 'var(--chalk)' }}>
+            Restore
+          </button>
+        )}
       </div>
 
       <div className="flex-1" />
@@ -149,26 +188,63 @@ export default function Topbar({
       <button
         title="Keyboard shortcuts"
         aria-label="Keyboard shortcuts"
-        className="px-3 py-1.5 text-sm rounded transition-colors hover:bg-[var(--hover-btn)] hover:border-[var(--border-hover)]"
-        style={{
-          border: '1px solid var(--chrome-line)',
-          color: 'var(--chalk)'
-        }}
+        onClick={onToggleHelp}
+        className="nf-btn px-3 py-1.5 text-sm rounded"
+        style={{ ...btnBase, fontFamily: 'var(--font-mono)' }}
       >
         ?
       </button>
 
       {/* Export */}
-      <div className="relative flex-none">
+      <div className="relative flex-none" ref={exportRef}>
         <button
-          className="px-3 py-1.5 text-sm rounded transition-colors hover:bg-[var(--hover-btn)] hover:border-[var(--border-hover)]"
-          style={{
-            border: '1px solid var(--chrome-line)',
-            color: 'var(--chalk)'
+          onClick={(e) => {
+            e.stopPropagation()
+            setExportOpen((o) => !o)
           }}
+          className="nf-btn px-3 py-1.5 text-sm rounded"
+          style={btnBase}
         >
           Export ▾
         </button>
+        {exportOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              right: 0,
+              zIndex: 80,
+              minWidth: 190,
+              background: 'var(--chrome-2)',
+              border: '1px solid var(--chrome-line)',
+              borderRadius: 10,
+              boxShadow: 'var(--shadow-menu)',
+              padding: 5
+            }}
+          >
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--muted)', padding: '7px 10px 3px' }}>
+              Export visible notes
+            </div>
+            {[
+              { fmt: 'image' as const, label: 'Image (.png)' },
+              { fmt: 'md' as const, label: 'Markdown (.md)' },
+              { fmt: 'txt' as const, label: 'Plain text (.txt)' },
+              { fmt: 'pdf' as const, label: 'PDF — coming soon' }
+            ].map((it) => (
+              <button
+                key={it.fmt}
+                className="nf-ctx-item"
+                onClick={() => {
+                  setExportOpen(false)
+                  onExport(it.fmt)
+                }}
+                style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 9, padding: '8px 10px', fontSize: 13, borderRadius: 6, textAlign: 'left', color: 'var(--chalk)' }}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* New Capture */}

@@ -26,6 +26,8 @@ export interface RawNote {
   raw_text: string
   position: NotePosition
   template_id: string | null
+  pinned: boolean
+  archived: boolean
   created_at: string
   updated_at: string
   note_versions?: NoteVersion[]
@@ -56,6 +58,30 @@ export function toResolvedTemplate(row: TemplateRow): ResolvedTemplate {
     pin: row.icon_color || DEFAULT_TEMPLATE_PIN,
     fields: row.fields || [],
   }
+}
+
+/** First `tags`-typed field's value on a note's template, if any — the
+ *  board has no separate tags table yet (see report), so tag chips/filters
+ *  are derived from whatever the dynamic template produced. */
+export function tagsFor(note: BoardNote): string[] {
+  const field = note.tmpl?.fields.find((f) => f.type === 'tags')
+  if (!field) return []
+  const value = note.latestVersion?.body?.[field.key]
+  return Array.isArray(value) ? value.map(String) : []
+}
+
+export interface ChecklistItem {
+  item: string
+  done?: boolean
+  due?: string
+}
+
+/** First `checklist`-typed field's value — used as the note's "action items". */
+export function checklistFor(note: BoardNote): ChecklistItem[] {
+  const field = note.tmpl?.fields.find((f) => f.type === 'checklist')
+  if (!field) return []
+  const value = note.latestVersion?.body?.[field.key]
+  return Array.isArray(value) ? (value as ChecklistItem[]) : []
 }
 
 export function enrichNote(note: RawNote, templatesById: Record<string, ResolvedTemplate>): BoardNote {

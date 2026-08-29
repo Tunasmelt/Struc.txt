@@ -86,6 +86,105 @@ export async function applyTemplateToNote(noteId: string, templateId: string) {
   return version
 }
 
+/** Toggles pinned/archived — real DB columns (migration 005) since these
+ *  must survive a reload, unlike collapsed/width which stay UI-local. */
+export async function updateNoteFlags(noteId: string, patch: { pinned?: boolean; archived?: boolean }) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { data, error } = await supabase
+    .from('notes')
+    .update(patch)
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Supabase update note flags error:', error)
+    throw new Error(`Failed to update note: ${error.message}`)
+  }
+
+  revalidatePath('/board')
+  return data
+}
+
+export async function deleteNote(noteId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { error } = await supabase.from('notes').delete().eq('id', noteId).eq('user_id', user.id)
+
+  if (error) {
+    console.error('Supabase delete note error:', error)
+    throw new Error(`Failed to delete note: ${error.message}`)
+  }
+
+  revalidatePath('/board')
+}
+
+/** Clones a note (title + raw text + template) as a brand-new row with its
+ *  own version history — restructures fresh rather than copying versions,
+ *  so the duplicate's structured body is never mistaken for a live copy of
+ *  the original's note_versions rows. */
+export async function duplicateNote(noteId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { data: source, error: fetchError } = await supabase
+    .from('notes')
+    .select('*')
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !source) {
+    throw new Error(`Failed to load note to duplicate: ${fetchError?.message || 'not found'}`)
+  }
+
+  const position = { ...source.position, x: (source.position?.x ?? 0) + 18, y: (source.position?.y ?? 0) + 18 }
+
+  const { data: copy, error: insertError } = await supabase
+    .from('notes')
+    .insert({
+      title: source.title ? `${source.title} (copy)` : 'Untitled capture (copy)',
+      raw_text: source.raw_text,
+      note_date: source.note_date,
+      transcript_source: source.transcript_source,
+      position,
+      search: source.raw_text,
+      user_id: user.id,
+      template_id: source.template_id,
+      pinned: false,
+      archived: false,
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    throw new Error(`Failed to duplicate note: ${insertError.message}`)
+  }
+
+  restructureNoteAction(copy.id, source.raw_text, source.template_id ?? null).catch((err) => {
+    console.error(`Background restructuring failed for duplicated note ${copy.id}:`, err)
+  })
+
+  revalidatePath('/board')
+  return copy
+}
+
 export async function updateNotePosition(
   noteId: string,
   position: { x: number; y: number; rotation: number; z_index: number }

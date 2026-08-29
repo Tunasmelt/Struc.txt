@@ -47,7 +47,19 @@ export default function RootLayout({
         ['--font-body' as string]: 'var(--font-body-family), system-ui, sans-serif',
       }}
     >
-      <body>{children}</body>
+      <body>
+        <script
+          // Runs before paint to avoid a light->dark flash on the public
+          // marketing/auth pages, which persist appearance to localStorage
+          // (see lib/appearance.ts). The board sets data-mode itself once it
+          // mounts, so this is harmless there too.
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var m=localStorage.getItem('noteflow-appearance');if(m==='dark')document.documentElement.setAttribute('data-mode','dark');}catch(e){}",
+          }}
+        />
+        {children}
+      </body>
     </html>
   )
 }
