@@ -70,6 +70,8 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ## Phase 3 — Board rendering 🚧 IN PROGRESS (core done, one gate item unverified)
 
+**2026-08-30 note:** the user asked for the board rebuilt to the *literal* dark-chrome prototype fidelity (not the lighter "modern flat" treatment originally shipped here), and pulled forward pin/archive/duplicate/delete/stack/auto-arrange/export/drawer/context-menu/keyboard-shortcuts — material originally scoped for Phases 8-10 below. That work landed out of order; see the "Pulled forward" note under Phases 8-10 for what's now done ahead of schedule and what's still genuinely deferred.
+
 **Goal:** Replace the plain list with the real corkboard, matching `prototype/Struc.txt Board.dc.html` — pinned/tilted notes, drag, z-index, position persistence.
 
 **Touches:** board page/components, `notes.position` (x, y, rotation, z_index)
@@ -174,61 +176,64 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 8 — Version history
+## Phase 8 — Version history 🚧 PARTIALLY PULLED FORWARD (2026-08-30)
+
+**Pulled-forward note:** the detail drawer and re-run action landed as part of the dark-chrome board fidelity pass, reusing the existing `applyTemplateToNote` action from Phase 4. What's still missing is the "old versions remain readable / browse prior versions" piece — the drawer shows only the *latest* version, it doesn't yet let you browse back through `note_versions` history.
 
 **Goal:** Raw ↔ structured toggle, and "re-run with a different template" as a real, non-destructive action.
 
 **Touches:** `note_versions` read path, drawer/detail UI, re-run action
 
 **Build:**
-- Detail view toggles between raw capture and current structured version
-- "Re-run as [different template]" creates a **new** `note_versions` row — never overwrites an existing one
-- Old versions remain readable
+- [x] Detail view toggles between raw capture and current structured version — `components/board/Drawer.tsx`
+- [x] "Re-run as [different template]" creates a **new** `note_versions` row — never overwrites an existing one — reuses `applyTemplateToNote`/`restructureNoteAction`, which always `INSERT`s into `note_versions`, never `UPDATE`s
+- [ ] Old versions remain readable / browsable in the UI — **not built**; the drawer only ever shows the latest `note_versions` row, there's no version picker yet
 
 **Exit gate:**
-- [ ] Re-running a note through a second template leaves the first version's row untouched in the database
-- [ ] The raw capture is provably never modified by any restructure or re-run — verify this against the actual row, not just the UI
-- [ ] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice
+- [ ] Re-running a note through a second template leaves the first version's row untouched in the database — true by construction (insert-only), not manually re-verified against a live row this session
+- [ ] The raw capture is provably never modified by any restructure or re-run — same: true by construction (`notes.raw_text` is never written to by any restructure path), not manually re-verified against a live row
+- [ ] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice — **cannot pass yet**, there is no way to select a prior version in the UI at all
 
 ---
 
-## Phase 9 — Board quality-of-life interactions
+## Phase 9 — Board quality-of-life interactions 🚧 MOSTLY PULLED FORWARD (2026-08-30)
 
-**Goal:** Stack, auto-arrange, resize, collapse, board themes, duplicate/delete — the interaction set already proven in `docs/noteflow-board-prototype.html`.
+**Pulled-forward note:** the user asked for the full prototype's dark-chrome board fidelity ahead of schedule, which required building most of this phase's interaction set early. What actually landed, so this phase isn't re-built from scratch later:
 
-**Touches:** board component (position/z-index exist on `notes.position` jsonb from Phase 0; **collapsed/width/pinned/archived do not exist yet** — confirmed absent from `supabase/migrations/001_base_schema.sql` during the Phase 3 UI pass, so this phase must add a migration for them before building the interactions, not just wire up UI)
+- [x] Stack all / auto-arrange / one-level "Restore" undo — `app/board/page.tsx` (`toggleStack`, `autoArrange`, `restoreLayout`), client-side, skips pinned notes, snapshot-based restore, respects the active filter set (operates on `matches()`-filtered notes only)
+- [x] Resize (width only, clamped) — session-local, unchanged from Phase 3
+- [x] Collapse to header card — session-local, unchanged from Phase 3
+- [x] Duplicate and delete with confirm — `duplicateNote`/`deleteNote` server actions (`app/actions/notes.ts`), `ConfirmDeleteModal.tsx`; delete cascades via the existing `notes` → `note_versions`/`action_items` `ON DELETE CASCADE` foreign keys from `001_base_schema.sql`
+- [x] Pin/archive — **new** `pinned`/`archived` columns via `supabase/migrations/005_add_pinned_archived_to_notes.sql` (not yet applied to the real project — same manual-apply requirement as prior migrations), `updateNoteFlags` action, toast-with-undo on archive
+- [ ] Board theme switch (felt/cork/slate/chalkboard) — **not built**, out of scope for this pass, genuinely still open
 
-**Build:**
-- Stack all (toggle, snapshots layout, visible-notes-only per active filters)
-- Auto-arrange (deterministic grid, one-level "Restore layout" undo)
-- Resize (width only, clamped)
-- Collapse to header card (boolean + CSS, no data change)
-- Board theme switch (felt/cork/slate/chalkboard — cosmetic, template colors stay fixed)
-- Duplicate and delete, with delete requiring a real confirm step and cascading to that note's action items and versions
+**Exit gate (reassessed against what actually landed):**
+- [x] Stacking respects the active filter set — a filtered-out note never moves (structurally true by construction — `toggleStack`/`autoArrange` only reposition `matches()`-filtered, non-pinned notes)
+- [ ] Un-stacking (or dragging a note out of the stack) restores its pre-stack position exactly — restore-via-button is wired; dragging a note *out* of a stack to auto-restore isn't a separate implemented behavior, only manual "Restore" is
+- [x] Auto-arrange's "Restore layout" genuinely reverses it, once — same snapshot mechanism serves both stack and auto-arrange
+- [ ] Deleting a note removes its action items and version history too — relies on the DB's `ON DELETE CASCADE`, which predates this session; not re-verified against the database this session (structural claim only)
+- [ ] Theme switch changes the board surface only — not built, still open
 
-**Exit gate:**
-- [ ] Stacking respects the active filter set — a filtered-out note never moves
-- [ ] Un-stacking (or dragging a note out of the stack) restores its pre-stack position exactly
-- [ ] Auto-arrange's "Restore layout" genuinely reverses it, once
-- [ ] Deleting a note removes its action items and version history too (verified against the database, not just the UI disappearing)
-- [ ] Theme switch changes the board surface only — template pin/stock colors are unchanged across all four themes
+Live interaction verification (drag/pin/archive/stack against a real logged-in session) has not been done — no test Supabase user/credentials exist in this environment. Structural + build verification only; do a real manual pass before fully closing this phase.
 
 ---
 
-## Phase 10 — Export
+## Phase 10 — Export 🚧 MOSTLY PULLED FORWARD (2026-08-30)
+
+**Pulled-forward note:** built alongside Phase 9 as part of the same dark-chrome fidelity pass.
 
 **Goal:** Real Markdown/plain-text/image export; PDF stubbed with an honest "coming soon."
 
 **Touches:** export menu, client-side generation, canvas-rendering library integration
 
 **Build:**
-- Markdown and plain-text export, single note and whole (filtered) board
-- Image export via canvas rendering, single note and whole board
-- PDF path present in the UI but explicitly not implemented yet — no fake success state
+- [x] Markdown and plain-text export, single note and whole (filtered) board — `lib/board/exportNote.ts`, no external library
+- [x] Image export via `html2canvas` (confirmed a real, current package — `1.4.1` — before installing), single note and whole board
+- [x] PDF path present in the export menu but explicitly says "coming soon" — no fake success state
 
 **Exit gate:**
-- [ ] Exported Markdown/text genuinely reflects the note's current structured content, including checklists and tags
-- [ ] Image export produces a real downloadable file, not a broken canvas
+- [ ] Exported Markdown/text genuinely reflects the note's current structured content, including checklists and tags — built to do this structurally (walks the same per-template field data `NoteCard`/`Drawer` render), not yet manually diffed against a real exported file
+- [ ] Image export produces a real downloadable file, not a broken canvas — not yet manually confirmed by actually opening a downloaded file in this session (Playwright can't easily assert on a triggered browser download); worth one real click-through before closing this phase
 - [ ] Clicking "PDF" tells the user honestly that it isn't built yet — it does not silently fail or produce an empty file
 
 ---

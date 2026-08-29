@@ -46,6 +46,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Added `applyTemplateToNote` server action and a per-card template picker so a template can be chosen before capture or applied/changed after (phase 4)
 - Generalized `NoteCard`'s structured-body rendering and `Rail`'s per-template counts/colors to work with any template's field list, not just the hardcoded meeting-minutes shape (phase 4)
 
+### Added
+- Public marketing landing page (`components/LandingPage.tsx`, rendered at `/` for guests) matching `prototype/Struc.txt Site.dc.html`'s landing screen: hero, 3-feature grid, seven-template chip row, CTA banner, footer
+- Shared light/dark appearance persistence + toggle (`lib/appearance.ts`, `components/AppearanceToggle.tsx`), used by the landing page and login/signup
+- `supabase/migrations/005_add_pinned_archived_to_notes.sql` adds real `pinned`/`archived` columns to `notes`, pulled forward from phase 9
+- New server actions `updateNoteFlags`, `deleteNote`, `duplicateNote` (`app/actions/notes.ts`), all RLS-scoped to `user_id` (phase 9, pulled forward)
+- Board detail drawer (`components/board/Drawer.tsx`) with raw↔structured toggle and "re-run as [template]" creating a new `note_versions` row (phase 8, partially pulled forward)
+- Context menu, confirm-delete modal, help modal, and a toast system with undo for archive/delete (`components/board/{ContextMenu,ConfirmDeleteModal,HelpModal,Toast}.tsx`) (phase 9, pulled forward)
+- Stack-all / auto-arrange / one-level restore, pin/archive, duplicate, delete-with-confirm, and keyboard shortcuts (c/p/a/f/o/[/]/Delete/Esc/?) on the board (phase 9, pulled forward)
+- Markdown/plain-text export (`lib/board/exportNote.ts`, no library) and PNG export via `html2canvas` for a single note or the whole filtered board; PDF menu item stays a visible "coming soon" (phase 10, pulled forward)
+
+### Changed
+- Restyled the board (`Board`/`NoteCard`/`Rail`/`Topbar`) to the prototype's dark-chrome visual language (sticky filter bar with date-range/tag/sort chips, rail sections for templates/view/open action items, pin badges) instead of the earlier lighter "modern flat" treatment, per explicit user request to match the original prototype rather than the previously chosen direction
+
 ### Fixed
 - `app/globals.css` used Tailwind v3's `@tailwind base/components/utilities` directives while the project runs Tailwind v4, which silently produced zero utility CSS — every Tailwind-styled page (login/signup included) rendered unstyled. Switched to `@import "tailwindcss"`.
 
