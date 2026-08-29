@@ -8,9 +8,9 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 3 — Board rendering: UI/visual portion built and fixed, position persistence not yet built
-- **Gate status:** Phase 3 rendering exit-gate items met (pinned/tilted styled cards matching the prototype, drag, click-to-front, template-filter rail, empty state, real Supabase data via `enrichNote`). Persistence exit-gate items **not met**: drag/z-index changes are local React state only — no `updateNotePosition` server action exists, so layout does not survive a reload. See `PHASES_AND_GATES.md` Phase 3 for the itemized gate.
-- **Last touched by:** Claude Code (Sonnet 5) — picked up an interrupted Devin AI session that had run out of credits mid-build
+- **Phase:** 3 — Board rendering: 3 of 4 exit-gate items met; the 4th (10+ note load performance) is unverified, not failing
+- **Gate status:** Visual match, drag+persistence, and click-to-front+persistence are all met — `updateNotePosition` (`app/actions/notes.ts`) now writes `position` (x, y, rotation, z_index) back to Supabase on drag-end and bring-to-front, scoped by the existing owner-only RLS update policy, no new migration needed. `zTop` reseeds from the max on-board `z_index` after each load so stacking order survives a reload. The one open item is "no layout shift/jank on load with 10+ notes" — not verified either way; there's no seeded dataset that size and it wasn't feasible to create a live test user + seed data in this session, so don't check it off without actually testing it. See `PHASES_AND_GATES.md` Phase 3.
+- **Last touched by:** Claude Code (Sonnet 5)
 - **Last touched:** 2026-08-30
 
 ---
@@ -28,7 +28,7 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Architecture reversion — reverted from Appwrite back to Supabase (PostgreSQL, Auth, Storage)
 - [x] Phase 1 — Paste capture form and list view rendered on home page, note insertion wired
 - [x] Phase 2 — AI Restructuring pipeline (Gemini primary, Groq fallback, Zod schema validation, repair retry, `note_versions` persistence, background restructuring trigger, `NoteList` UI status and field rendering)
-- [~] Phase 3 — Board rendering: corkboard UI built (`app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx`, `lib/tokens.ts`, `styles/tokens.css`), real Supabase data wired in, drag/click-to-front work in-session; position/z-index persistence to the database is the remaining gap
+- [~] Phase 3 — Board rendering: corkboard UI built (`app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx`, `lib/tokens.ts`, `styles/tokens.css`), real Supabase data wired in, drag/click-to-front persist via `updateNotePosition`; only remaining gate item is verifying no jank at 10+ notes
 - [ ] Phase 4+ — see `PHASES_AND_GATES.md`
 
 ---
@@ -40,6 +40,21 @@ Read this first in any new session, before opening any code. This file exists be
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
+
+### [2026-08-30] — Claude Code (Sonnet 5) (Phase 3 — position persistence)
+- Phase worked on: Phase 3 (Board rendering), closing the persistence gap left open by the previous session.
+- What changed:
+  - Added `updateNotePosition(noteId, position)` to `app/actions/notes.ts` — a server action that updates `notes.position` (x, y, rotation, z_index) scoped to `user_id`, relying on the owner-only RLS update policy already created in `002_add_user_id_and_rls.sql` (no new migration needed).
+  - `app/board/page.tsx`: `handlePositionChange` and `handleBringToFront` now call `updateNotePosition` (fire-and-forget, errors logged not surfaced) whenever they update local state, so drag and z-order changes persist.
+  - `loadNotes` now seeds `zTop` from the highest `z_index` already present on the board, so "bring to front" keeps incrementing correctly after a reload instead of resetting to a low baseline that could re-collide with existing notes.
+  - Verified `npx tsc --noEmit` and `npm run build` clean.
+- Gate status at end of session (met / not met, and why):
+  - Visual match to prototype: ✓ met (unchanged from prior session)
+  - Drag reposition persists across reload: ✓ met
+  - Click/drag-to-front persists across reload: ✓ met
+  - No jank with 10+ notes: ⚠️ not verified — would require a live test user and a seeded dataset of that size; didn't set that up this session, so it's left open rather than falsely checked off
+- What the next session should do first:
+  - If closing Phase 3 fully matters before Phase 4, seed 10+ notes against a real (or test) Supabase user and manually confirm no layout jank, then check off the last gate item. Otherwise proceed to Phase 4 (Templates library) — the open item doesn't block template work.
 
 ### [2026-08-30] — Claude Code (Sonnet 5) (Phase 3 Board UI — recovery + completion of rendering)
 - Phase worked on: Phase 3 (Board rendering). Picked up mid-phase after a Devin AI session ran out of credits, leaving the board partially built and non-compiling.

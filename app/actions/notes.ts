@@ -44,6 +44,29 @@ export async function createNote(rawText: string) {
   return data
 }
 
+export async function updateNotePosition(
+  noteId: string,
+  position: { x: number; y: number; rotation: number; z_index: number }
+) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { error } = await supabase
+    .from('notes')
+    .update({ position })
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('Supabase update note position error:', error)
+    throw new Error(`Failed to update note position: ${error.message}`)
+  }
+}
+
 export async function getNotes() {
   const supabase = await createClient()
   

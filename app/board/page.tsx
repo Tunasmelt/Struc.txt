@@ -5,7 +5,7 @@ import Topbar from '@/components/board/Topbar'
 import Rail from '@/components/board/Rail'
 import Board from '@/components/board/Board'
 import CaptureModal from '@/components/board/CaptureModal'
-import { getNotes } from '@/app/actions/notes'
+import { getNotes, updateNotePosition } from '@/app/actions/notes'
 import { AppearanceMode, TemplateType } from '@/lib/tokens'
 import { BoardNote, RawNote, enrichNote } from '@/components/board/types'
 
@@ -22,7 +22,10 @@ export default function BoardPage() {
   const loadNotes = useCallback(async () => {
     try {
       const data = (await getNotes()) as RawNote[]
-      setNotes(data.map(enrichNote))
+      const enriched = data.map(enrichNote)
+      setNotes(enriched)
+      const maxZ = enriched.reduce((max, n) => Math.max(max, n.position.z_index ?? 0), 0)
+      setZTop((prev) => Math.max(prev, maxZ))
     } catch (error) {
       console.error('Failed to load notes:', error)
     } finally {
@@ -39,21 +42,40 @@ export default function BoardPage() {
     document.documentElement.setAttribute('data-mode', mode)
   }
 
-  const handlePositionChange = useCallback((id: string, position: { x: number; y: number }) => {
-    // Position edits are local-only for now: there's no update-note-position
-    // server action yet, so drags don't persist across a reload.
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, position: { ...n.position, x: position.x, y: position.y } } : n))
-    )
+  const persistPosition = useCallback((id: string, position: { x: number; y: number; rotation: number; z_index: number }) => {
+    updateNotePosition(id, position).catch((error) => {
+      console.error(`Failed to persist position for note ${id}:`, error)
+    })
   }, [])
+
+  const handlePositionChange = useCallback(
+    (id: string, position: { x: number; y: number }) => {
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n
+          const nextPosition = { ...n.position, x: position.x, y: position.y }
+          persistPosition(id, nextPosition)
+          return { ...n, position: nextPosition }
+        })
+      )
+    },
+    [persistPosition]
+  )
 
   const handleBringToFront = useCallback(
     (id: string) => {
       const next = zTop + 1
       setZTop(next)
-      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, position: { ...n.position, z_index: next } } : n)))
+      setNotes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) return n
+          const nextPosition = { ...n.position, z_index: next }
+          persistPosition(id, nextPosition)
+          return { ...n, position: nextPosition }
+        })
+      )
     },
-    [zTop]
+    [zTop, persistPosition]
   )
 
   const filteredNotes = useMemo(() => {

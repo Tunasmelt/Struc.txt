@@ -39,6 +39,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Added restructuring unit and integration tests (`lib/ai/__tests__/restructure.test.ts`) (phase 2)
 - Board UI implemented: `app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx` — pinned/tilted note cards styled from the prototype's token set, template-filter rail with live counts, cross-note open-action-items list, and a paste-capture modal wired to `createNote` (phase 3)
 - Ported prototype design tokens into `lib/tokens.ts` and `styles/tokens.css`; `app/layout.tsx` now loads the prototype's fonts via `next/font/google` and the `data-mode="light"` default (phase 3)
+- Added `updateNotePosition` server action (`app/actions/notes.ts`) persisting drag and bring-to-front position/z-index changes to `notes.position`, closing the Phase 3 persistence gap (phase 3)
 
 ### Changed
 - Updated AGENTS.md references from retired `docs/noteflow-board-prototype.html` to new prototype files (phase 0)

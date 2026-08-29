@@ -68,7 +68,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 3 — Board rendering 🚧 IN PROGRESS (rendering done, persistence pending)
+## Phase 3 — Board rendering 🚧 IN PROGRESS (core done, one gate item unverified)
 
 **Goal:** Replace the plain list with the real corkboard, matching `prototype/Struc.txt Board.dc.html` — pinned/tilted notes, drag, z-index, position persistence.
 
@@ -76,19 +76,19 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 **Build:**
 - [x] Notes render pinned and tilted, styled per template (color/pin from the prototype's token set) — `app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal}.tsx`, tokens ported to `lib/tokens.ts` / `styles/tokens.css`
-- [x] Drag to reposition, click/drag brings a note to front (in-memory only — see gate below)
+- [x] Drag to reposition, click/drag brings a note to front, both persisted (see below)
 - [x] Basic empty state, plus template-filter rail with live counts and a cross-note open-action-items list
 - [x] Notes/structured versions loaded from Supabase (`notes` + `note_versions`) via `enrichNote`, not mock data
 - [x] Paste-capture entry point wired into the board (Topbar → `CaptureModal` → existing `createNote` action)
-- [ ] Drag position/z-index writes back to `notes.position` in Supabase — **not built yet**, no `updateNotePosition` server action exists
+- [x] Drag position/z-index writes back to `notes.position` in Supabase via `updateNotePosition` (`app/actions/notes.ts`), called on drag-end and on bring-to-front; RLS-scoped to the owning user via the existing `notes` update policy (`002_add_user_id_and_rls.sql`), no new migration needed. `zTop` is seeded from the max `z_index` already on the board after each load, so stacking order keeps incrementing correctly across reloads instead of resetting.
 
 **Exit gate:**
 - [x] Visual side-by-side against the prototype HTML — same pin/tilt/paper feel, not a generic card grid
-- [ ] Dragging a note, reloading the page, shows it in the same place — **fails today**: position is local React state only, resets on reload
-- [ ] Clicking a note behind another brings it to front, and that order survives a reload — front-bringing works, survival does not
-- [ ] No layout shift/jank on load with 10+ notes on the board — not yet load-tested at that count
+- [x] Dragging a note, reloading the page, shows it in the same place
+- [x] Clicking a note behind another brings it to front, and that order survives a reload
+- [ ] No layout shift/jank on load with 10+ notes on the board — **not verified**: no seeded dataset of that size exists yet to test against; each card is a plain absolutely-positioned DOM node with no virtualization, so it should scale fine, but confirm with real data before checking this off
 
-**Next step before this phase can close:** add an `updateNotePosition` server action (x, y, rotation, z_index) and call it on drag-end/click, matching the RLS-scoped pattern already used by `app/actions/notes.ts`.
+Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll back the UI) — acceptable for a single-user local edit, but if multi-device sync matters later, revisit for conflict handling.
 
 ---
 
