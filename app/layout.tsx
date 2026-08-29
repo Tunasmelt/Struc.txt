@@ -1,5 +1,26 @@
 import type { Metadata } from 'next'
+import { Bricolage_Grotesque, IBM_Plex_Mono, Public_Sans } from 'next/font/google'
 import './globals.css'
+import '../styles/tokens.css'
+
+const bricolageGrotesque = Bricolage_Grotesque({
+  subsets: ['latin'],
+  weight: ['500', '700', '800'],
+  variable: '--font-display-family',
+})
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono-family',
+})
+
+const publicSans = Public_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-body-family',
+})
 
 export const metadata: Metadata = {
   title: 'NoteFlow',
@@ -12,7 +33,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      data-mode="light"
+      className={`${bricolageGrotesque.variable} ${ibmPlexMono.variable} ${publicSans.variable}`}
+      style={{
+        // tokens.css defines --font-display/--font-mono/--font-body as literal
+        // font-family strings; point them at next/font's self-hosted faces
+        // (with the same fallback stacks) instead of loading Google Fonts via
+        // <link> tags, which Next's App Router doesn't manage for you.
+        ['--font-display' as string]: 'var(--font-display-family), sans-serif',
+        ['--font-mono' as string]: 'var(--font-mono-family), monospace',
+        ['--font-body' as string]: 'var(--font-body-family), system-ui, sans-serif',
+      }}
+    >
       <body>{children}</body>
     </html>
   )
