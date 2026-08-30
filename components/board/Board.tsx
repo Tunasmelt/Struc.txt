@@ -33,6 +33,9 @@ interface BoardProps {
   onResize: (id: string, w: number) => void
   onOpen: (id: string) => void
   onContextMenu: (id: string, x: number, y: number) => void
+  onToggleActionItem: (id: string, done: boolean) => void
+  onConfirmTag: (id: string) => void
+  onRejectTag: (id: string) => void
 }
 
 function chipStyle(on: boolean): CSSProperties {
@@ -67,7 +70,10 @@ export default function Board({
   onCollapseToggle,
   onResize,
   onOpen,
-  onContextMenu
+  onContextMenu,
+  onToggleActionItem,
+  onConfirmTag,
+  onRejectTag
 }: BoardProps) {
   if (loading) {
     return (
@@ -167,6 +173,9 @@ export default function Board({
               onBringToFront={onBringToFront}
               onOpen={onOpen}
               onContextMenu={onContextMenu}
+              onToggleActionItem={onToggleActionItem}
+              onConfirmTag={onConfirmTag}
+              onRejectTag={onRejectTag}
             />
           ))
         )}

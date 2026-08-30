@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import { DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
-import { BoardNote, ResolvedTemplate, checklistFor } from './types'
+import { BoardNote, ResolvedTemplate, openActionItemRows } from './types'
 
 interface RailProps {
   liveNotes: BoardNote[]
@@ -12,8 +12,7 @@ interface RailProps {
   onFilterTmplChange: (tmplId: string | null) => void
   showArchived: boolean
   onShowArchivedChange: (show: boolean) => void
-  onToggleTodo: (noteId: string, index: number) => void
-  checklistOverrides: Record<string, boolean>
+  onToggleActionItem: (id: string, done: boolean) => void
   className?: string
 }
 
@@ -41,8 +40,7 @@ export default function Rail({
   onFilterTmplChange,
   showArchived,
   onShowArchivedChange,
-  onToggleTodo,
-  checklistOverrides,
+  onToggleActionItem,
   className = ''
 }: RailProps) {
   const templateRows = [
@@ -56,13 +54,7 @@ export default function Rail({
     }))
   )
 
-  const todoItems = liveNotes.flatMap((n) =>
-    checklistFor(n).map((item, i) => ({ note: n, item, i })).filter(({ item, i }) => {
-      const key = `${n.id}:${i}`
-      const done = key in checklistOverrides ? checklistOverrides[key] : !!item.done
-      return !done
-    })
-  )
+  const todoItems = liveNotes.flatMap((n) => openActionItemRows(n).map((item) => ({ note: n, item })))
 
   return (
     <aside
@@ -128,9 +120,9 @@ export default function Rail({
         </div>
       ) : (
         <div>
-          {todoItems.map(({ note, item, i }) => (
+          {todoItems.map(({ note, item }) => (
             <label
-              key={`${note.id}-${i}`}
+              key={item.id}
               style={{
                 padding: '8px 8px 8px 6px',
                 display: 'flex',
@@ -144,12 +136,12 @@ export default function Rail({
             >
               <input
                 type="checkbox"
-                checked={false}
-                onChange={() => onToggleTodo(note.id, i)}
+                checked={item.status === 'done'}
+                onChange={(e) => onToggleActionItem(item.id, e.target.checked)}
                 style={{ marginTop: 2, accentColor: 'var(--brass)' }}
               />
               <span>
-                {item.item}
+                {item.text}
                 <em
                   style={{
                     display: 'block',
@@ -162,7 +154,7 @@ export default function Rail({
                   }}
                 >
                   {note.title || 'Untitled note'}
-                  {item.due ? ` · due ${item.due}` : ''}
+                  {item.due_date ? ` · due ${item.due_date}` : ''}
                 </em>
               </span>
             </label>

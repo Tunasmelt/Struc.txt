@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BoardNote, ResolvedTemplate, checklistFor, tagsFor } from './types'
+import { BoardNote, ResolvedTemplate, checklistFor, tagsFor, suggestedNoteTags, openActionItemRows } from './types'
 import { applyTemplateToNote } from '@/app/actions/notes'
 import { getAudioSignedUrl } from '@/app/actions/audio'
 
@@ -17,6 +17,9 @@ interface DrawerProps {
   onReran: () => void
   checklistOverrides: Record<string, boolean>
   onToggleChecklistItem: (noteId: string, index: number) => void
+  onToggleActionItem: (id: string, done: boolean) => void
+  onConfirmTag: (id: string) => void
+  onRejectTag: (id: string) => void
 }
 
 function fmtDate(d: string | null) {
@@ -58,7 +61,10 @@ export default function Drawer({
   onExportImage,
   onReran,
   checklistOverrides,
-  onToggleChecklistItem
+  onToggleChecklistItem,
+  onToggleActionItem,
+  onConfirmTag,
+  onRejectTag
 }: DrawerProps) {
   const [showRaw, setShowRaw] = useState(false)
   const [rerunKey, setRerunKey] = useState('')
@@ -85,6 +91,8 @@ export default function Drawer({
   const body = note?.latestVersion?.body || {}
   const actions = note ? checklistFor(note) : []
   const tags = note ? tagsFor(note) : []
+  const suggested = note ? suggestedNoteTags(note) : []
+  const enrichedActions = note ? openActionItemRows(note) : []
 
   const handleRerun = async () => {
     if (!note || rerunBusy) return
@@ -247,10 +255,58 @@ export default function Drawer({
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
                     Tags
                   </span>
-                  <div style={{ lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
-                    {tags.length ? tags.map((t) => `#${t}`).join(' ') : '—'}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
+                    {tags.length === 0 && suggested.length === 0 && '—'}
+                    {tags.map((t) => (
+                      <span key={t}>#{t}</span>
+                    ))}
+                    {suggested.map((t) => (
+                      <span
+                        key={t.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          fontSize: 12,
+                          color: 'var(--muted)',
+                          border: '1px dashed var(--chrome-line)',
+                          borderRadius: 99,
+                          padding: '2px 5px 2px 9px'
+                        }}
+                      >
+                        #{t.tags!.name}
+                        <button onClick={() => onConfirmTag(t.id)} aria-label={`Confirm tag ${t.tags!.name}`} style={{ color: 'var(--brass-text)' }}>
+                          ✓
+                        </button>
+                        <button onClick={() => onRejectTag(t.id)} aria-label={`Dismiss tag ${t.tags!.name}`} style={{ color: 'var(--muted)' }}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 </div>
+
+                {enrichedActions.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
+                      Extracted action items
+                    </span>
+                    {enrichedActions.map((item) => (
+                      <label key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '9px 0', borderBottom: '1px solid var(--line-2)', fontSize: 14 }}>
+                        <input
+                          type="checkbox"
+                          checked={item.status === 'done'}
+                          onChange={(e) => onToggleActionItem(item.id, e.target.checked)}
+                          style={{ accentColor: 'var(--brass)', marginTop: 3 }}
+                        />
+                        <span>
+                          {item.text}
+                          {item.due_date && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · due {item.due_date}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
 
                 {actions.length > 0 && (
                   <div style={{ marginBottom: 16 }}>

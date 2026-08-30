@@ -218,7 +218,7 @@ export async function getNotes() {
 
   const { data, error } = await supabase
     .from('notes')
-    .select('*, note_versions(*)')
+    .select('*, note_versions(*), note_tags(id, status, tags(id, name)), action_items(id, text, due_date, status)')
     .order('created_at', { ascending: false })
 
   if (error) {

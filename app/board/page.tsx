@@ -12,6 +12,7 @@ import HelpModal from '@/components/board/HelpModal'
 import Toast from '@/components/board/Toast'
 import { getNotes, updateNotePosition, updateNoteFlags, deleteNote, duplicateNote, searchNoteIds } from '@/app/actions/notes'
 import { getTemplates } from '@/app/actions/templates'
+import { confirmTag, rejectTag, toggleActionItem } from '@/app/actions/enrich'
 import { AppearanceMode, SPACE } from '@/lib/tokens'
 import { BoardNote, RawNote, ResolvedTemplate, checklistFor, enrichNote, tagsFor, toResolvedTemplate } from '@/components/board/types'
 import { exportElementAsImage, exportNotesAsMarkdown, exportNotesAsText } from '@/lib/board/exportNote'
@@ -406,6 +407,42 @@ export default function BoardPage() {
     [notes]
   )
 
+  /* ---------- Phase 7: real tags + action items (DB-backed, unlike
+   * checklistOverrides above) ---------- */
+  const handleToggleActionItem = useCallback((id: string, done: boolean) => {
+    setNotes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        action_items: (n.action_items || []).map((a) => (a.id === id ? { ...a, status: done ? 'done' : 'pending' } : a))
+      }))
+    )
+    toggleActionItem(id, done).catch((err) => {
+      console.error('Failed to toggle action item:', err)
+      loadNotes()
+    })
+  }, [loadNotes])
+
+  const handleConfirmTag = useCallback((id: string) => {
+    setNotes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        note_tags: (n.note_tags || []).map((t) => (t.id === id ? { ...t, status: 'confirmed' } : t))
+      }))
+    )
+    confirmTag(id).catch((err) => {
+      console.error('Failed to confirm tag:', err)
+      loadNotes()
+    })
+  }, [loadNotes])
+
+  const handleRejectTag = useCallback((id: string) => {
+    setNotes((prev) => prev.map((n) => ({ ...n, note_tags: (n.note_tags || []).filter((t) => t.id !== id) })))
+    rejectTag(id).catch((err) => {
+      console.error('Failed to reject tag:', err)
+      loadNotes()
+    })
+  }, [loadNotes])
+
   /* ---------- export ---------- */
   const handleExport = useCallback(
     async (fmt: 'image' | 'md' | 'txt' | 'pdf') => {
@@ -574,8 +611,7 @@ export default function BoardPage() {
           onFilterTmplChange={setFilterTmpl}
           showArchived={showArchived}
           onShowArchivedChange={setShowArchived}
-          onToggleTodo={toggleChecklistItem}
-          checklistOverrides={checklistOverrides}
+          onToggleActionItem={handleToggleActionItem}
         />
         <Board
           notes={visibleNotes}
@@ -598,6 +634,9 @@ export default function BoardPage() {
           onResize={setWidth}
           onOpen={openNote}
           onContextMenu={(id, x, y) => setCtx({ id, x, y })}
+          onToggleActionItem={handleToggleActionItem}
+          onConfirmTag={handleConfirmTag}
+          onRejectTag={handleRejectTag}
         />
       </div>
 
@@ -615,6 +654,9 @@ export default function BoardPage() {
         onReran={loadNotes}
         checklistOverrides={checklistOverrides}
         onToggleChecklistItem={toggleChecklistItem}
+        onToggleActionItem={handleToggleActionItem}
+        onConfirmTag={handleConfirmTag}
+        onRejectTag={handleRejectTag}
       />
 
       {ctxNote && (

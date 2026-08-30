@@ -161,23 +161,27 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 7 — Enrichment pass (tags + action items)
+## Phase 7 — Enrichment pass (tags + action items) 🚧 IN PROGRESS (built, unverified against live LLM calls)
 
 **Goal:** The second LLM call — auto-tagging and action-item extraction — running as a genuinely separate pass from restructuring.
 
 **Touches:** enrichment route handler, `tags`/`note_tags`, `action_items`, global action-item list UI
 
+**Note on scope:** this phase's real `action_items`/`tags` tables are a *different* concept from a template's own `checklist`/`tags`-typed structured fields (e.g. Meeting Minutes already has an `action_items` field as part of its pass-1 output). Both now coexist in the UI — the template's own field renders as regular structured content (unchanged), while this phase's enrichment output is a separate, cross-template, cross-note system. See the doc comments on `ActionItemRow`/`NoteTagRow` in `components/board/types.ts`.
+
 **Build:**
-- Second call takes the *structured* body (not raw text) and returns suggested tags + extracted action items
-- User confirms/edits suggested tags before they're saved as confirmed
-- Action items appear both inline on the note and in a cross-note global list in the rail
-- Enrichment failure does not affect the note or its restructured content
+- [x] Second call takes the *structured* body (not raw text) and returns suggested tags + extracted action items — `lib/prompts/enrichment.ts` (fixed schema, not per-template dynamic — its shape doesn't depend on which template produced the body it reads), `lib/ai/enrich.ts` (`enrichNoteContent`, Gemini-primary/Groq-fallback, reusing the same providers as pass 1 but its own prompt and its own request)
+- [x] User confirms/edits suggested tags before they're saved as confirmed — `note_tags.status` starts `'suggested'` (existing Phase 0 default), `confirmTag`/`rejectTag` in `app/actions/enrich.ts` flip it to `'confirmed'` or delete the row; suggested chips render with a dashed border and inline ✓/× buttons in both `NoteCard.tsx` and `Drawer.tsx`, visually distinct from solid confirmed-tag chips
+- [x] Action items appear both inline on the note (`NoteCard.tsx`'s new "Action items" block, `Drawer.tsx`'s "Extracted action items") and in a cross-note global list in the rail (`Rail.tsx`'s "Open action items" now reads real `action_items` rows instead of the old template-checklist-derived, always-unchecked list it used before this phase)
+- [x] Enrichment failure does not affect the note or its restructured content — `enrichNoteAction` wraps everything (the LLM call, Zod validation, all DB writes) in one try/catch that only logs; it never writes to `notes`/`note_versions`, and is fired fire-and-forget *after* the pass-1 `note_versions` insert already succeeded (`app/actions/restructure.ts`), so a pass-2 failure structurally cannot touch pass-1's already-saved row
 
 **Exit gate:**
-- [ ] Forcing pass 2 to fail (mocked error) leaves the structured note from pass 1 completely intact
-- [ ] Suggested tags are visually distinct from confirmed tags until the user acts on them
-- [ ] Marking an action item done in the global list updates it inline on the note, and vice versa
-- [ ] Enrichment genuinely runs as a second network call, not folded into the pass 1 prompt (check the actual request log, don't assume the code does what the comment says)
+- [ ] Forcing pass 2 to fail (mocked error) leaves the structured note from pass 1 completely intact — true by construction (see above), not yet exercised with a deliberately forced failure
+- [x] Suggested tags are visually distinct from confirmed tags until the user acts on them — dashed border + confirm/reject buttons vs. solid pill, true by construction/code review
+- [x] Marking an action item done in the global list updates it inline on the note, and vice versa — both `Rail` and `NoteCard`/`Drawer` render from the *same* `notes` array in `app/board/page.tsx` state (not independent copies), and `handleToggleActionItem` updates that one array optimistically before the server round-trip, so this is structurally guaranteed rather than something that could drift — not yet clicked through live
+- [ ] Enrichment genuinely runs as a second network call, not folded into the pass 1 prompt — true by construction (`enrichNoteAction` calls `generateWithGemini`/`generateWithGroq` again with `buildEnrichmentPrompt`'s own distinct prompt, a separate request from pass 1's), but "check the actual request log" per this gate's own wording hasn't been done — no live LLM traffic has been generated in this environment to inspect
+
+**Before closing this phase:** do a real capture → restructure → watch enrichment run (check server logs for two distinct LLM calls, not one), confirm a suggested tag, reject another, mark an action item done from the rail and confirm it reflects on the card and in the drawer, and force an enrichment failure (e.g. temporarily unset both API keys) to confirm the note's structured content survives untouched.
 
 ---
 

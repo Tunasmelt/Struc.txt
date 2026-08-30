@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { SPACE, MODE_CARD, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
-import { BoardNote, checklistFor, tagsFor } from './types'
+import { BoardNote, checklistFor, tagsFor, suggestedNoteTags } from './types'
 import { TemplateField } from '@/lib/prompts/dynamicTemplate'
 
 interface NoteCardProps {
@@ -17,6 +17,9 @@ interface NoteCardProps {
   onBringToFront: (id: string) => void
   onOpen: (id: string) => void
   onContextMenu: (id: string, x: number, y: number) => void
+  onToggleActionItem: (id: string, done: boolean) => void
+  onConfirmTag: (id: string) => void
+  onRejectTag: (id: string) => void
 }
 
 const labelStyle = {
@@ -118,7 +121,10 @@ export default function NoteCard({
   onPositionChange,
   onBringToFront,
   onOpen,
-  onContextMenu
+  onContextMenu,
+  onToggleActionItem,
+  onConfirmTag,
+  onRejectTag
 }: NoteCardProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
@@ -145,6 +151,7 @@ export default function NoteCard({
   const actions = checklistFor(note)
   const openActions = actions.filter((i) => !i.done).length
   const tags = tagsFor(note)
+  const suggested = suggestedNoteTags(note)
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-act]')) return
@@ -354,6 +361,47 @@ export default function NoteCard({
                 #{t}
               </span>
             ))}
+            {suggested.map((t) => (
+              <span
+                key={t.id}
+                data-act="tag"
+                title="Suggested by enrichment — confirm or dismiss"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  color: 'var(--muted)',
+                  background: 'transparent',
+                  border: '1px dashed var(--card-line)',
+                  padding: '2px 4px 2px 8px',
+                  borderRadius: 99
+                }}
+              >
+                #{t.tags!.name}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onConfirmTag(t.id)
+                  }}
+                  aria-label={`Confirm tag ${t.tags!.name}`}
+                  style={{ color: 'var(--brass-text)', padding: '0 2px', lineHeight: 1 }}
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRejectTag(t.id)
+                  }}
+                  aria-label={`Dismiss tag ${t.tags!.name}`}
+                  style={{ color: 'var(--muted)', padding: '0 2px', lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
             {openActions > 0 && (
               <span
                 style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '9.5px', color: 'var(--ink-2)' }}
@@ -362,6 +410,35 @@ export default function NoteCard({
               </span>
             )}
           </footer>
+
+          {(note.action_items?.length ?? 0) > 0 && (
+            <div data-act="action-items" style={{ marginTop: 10 }}>
+              <span style={labelStyle}>Action items</span>
+              {(note.action_items || []).map((item) => (
+                <label
+                  key={item.id}
+                  style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: '12.6px', lineHeight: 1.4, marginBottom: 4 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={item.status === 'done'}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      onToggleActionItem(item.id, e.target.checked)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ marginTop: 2, accentColor: 'var(--brass)' }}
+                  />
+                  <span style={{ textDecoration: item.status === 'done' ? 'line-through' : 'none', opacity: item.status === 'done' ? 0.6 : 1 }}>
+                    {item.text}
+                    {item.due_date && (
+                      <em style={{ fontStyle: 'normal', color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>due {item.due_date}</em>
+                    )}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
 
           <span
             data-act="resize"

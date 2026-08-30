@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { restructureNoteContent } from '@/lib/ai/restructure'
 import { getTemplate } from '@/app/actions/templates'
+import { enrichNoteAction } from '@/app/actions/enrich'
 import { revalidatePath } from 'next/cache'
 
 /** Fallback preset used when a note has no template chosen at all, to
@@ -46,6 +47,18 @@ export async function restructureNoteAction(noteId: string, rawText: string, tem
   if (error) {
     console.error('Failed to insert note_version:', error)
     throw new Error(`Failed to save structured note version: ${error.message}`)
+  }
+
+  // Pass 2 (Phase 7), fire-and-forget: a genuinely separate network call
+  // from restructuring above, reading the *structured* body just saved, not
+  // the raw text. Skipped for the unstructured-fallback path — there's no
+  // real structure yet to extract tags/action-items from. Any failure here
+  // is caught inside enrichNoteAction and never affects the note_version
+  // this function just successfully saved.
+  if (result.body?.fallback_unstructured !== true) {
+    enrichNoteAction(data.id, result.body).catch((err) => {
+      console.error(`Enrichment trigger failed for note ${noteId}:`, err)
+    })
   }
 
   revalidatePath('/')

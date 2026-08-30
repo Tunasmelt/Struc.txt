@@ -33,6 +33,30 @@ export interface RawNote {
   created_at: string
   updated_at: string
   note_versions?: NoteVersion[]
+  note_tags?: NoteTagRow[]
+  action_items?: ActionItemRow[]
+}
+
+/** A row from `note_tags` joined to its `tags` name — `status` is
+ *  'suggested' (enrichment just proposed it) or 'confirmed' (the user acted
+ *  on it); there's no 'rejected' state, rejecting a suggestion deletes the
+ *  row outright (see rejectTag in app/actions/enrich.ts). */
+export interface NoteTagRow {
+  id: string
+  status: string
+  tags: { id: string; name: string } | null
+}
+
+/** A row from the real, cross-note `action_items` table — Phase 7's
+ *  enrichment output. Distinct from a template's own `checklist`-typed
+ *  field (see ChecklistItem/checklistFor below): that's pass-1 structured
+ *  content a template happens to produce, this is pass-2 extraction that
+ *  exists regardless of which template a note used. */
+export interface ActionItemRow {
+  id: string
+  text: string
+  due_date: string | null
+  status: string
 }
 
 /** A resolved template shape used purely for board rendering: name, pin
@@ -62,14 +86,37 @@ export function toResolvedTemplate(row: TemplateRow): ResolvedTemplate {
   }
 }
 
-/** First `tags`-typed field's value on a note's template, if any — the
- *  board has no separate tags table yet (see report), so tag chips/filters
- *  are derived from whatever the dynamic template produced. */
+/** Tag names for filtering/display: merges whatever a `tags`-typed template
+ *  field produced (pass-1 structured content) with the note's real
+ *  *confirmed* tags from Phase 7's enrichment pass. Suggested-but-unconfirmed
+ *  tags are deliberately excluded here — see suggestedNoteTags below for
+ *  those, since they need their own confirm/reject UI, not silent inclusion
+ *  in filters. */
 export function tagsFor(note: BoardNote): string[] {
   const field = note.tmpl?.fields.find((f) => f.type === 'tags')
-  if (!field) return []
-  const value = note.latestVersion?.body?.[field.key]
-  return Array.isArray(value) ? value.map(String) : []
+  const fromField = field && Array.isArray(note.latestVersion?.body?.[field.key])
+    ? (note.latestVersion!.body[field.key] as unknown[]).map(String)
+    : []
+  return Array.from(new Set([...fromField, ...confirmedTagNames(note)]))
+}
+
+/** This note's confirmed tag names (Phase 7). */
+export function confirmedTagNames(note: BoardNote): string[] {
+  return (note.note_tags || [])
+    .filter((t) => t.status === 'confirmed' && t.tags)
+    .map((t) => t.tags!.name)
+}
+
+/** This note's suggested-but-not-yet-confirmed tags (Phase 7) — rendered
+ *  distinctly from confirmed ones until the user confirms or rejects each. */
+export function suggestedNoteTags(note: BoardNote): NoteTagRow[] {
+  return (note.note_tags || []).filter((t) => t.status === 'suggested' && t.tags)
+}
+
+/** Open (not-done) real action items from Phase 7's enrichment pass —
+ *  the cross-note-syncable kind, not a template's own checklist field. */
+export function openActionItemRows(note: BoardNote): ActionItemRow[] {
+  return (note.action_items || []).filter((a) => a.status !== 'done')
 }
 
 export interface ChecklistItem {
