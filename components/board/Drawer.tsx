@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BoardNote, ResolvedTemplate, checklistFor, tagsFor } from './types'
 import { applyTemplateToNote } from '@/app/actions/notes'
+import { getAudioSignedUrl } from '@/app/actions/audio'
 
 interface DrawerProps {
   note: BoardNote | null
@@ -62,6 +63,23 @@ export default function Drawer({
   const [showRaw, setShowRaw] = useState(false)
   const [rerunKey, setRerunKey] = useState('')
   const [rerunBusy, setRerunBusy] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [audioLoading, setAudioLoading] = useState(false)
+
+  useEffect(() => {
+    setAudioUrl(null)
+  }, [note?.id])
+
+  const handlePlayRecording = async () => {
+    if (!note || audioLoading) return
+    setAudioLoading(true)
+    try {
+      const url = await getAudioSignedUrl(note.id)
+      setAudioUrl(url)
+    } finally {
+      setAudioLoading(false)
+    }
+  }
 
   const tmpl = note?.tmpl
   const body = note?.latestVersion?.body || {}
@@ -166,6 +184,17 @@ export default function Drawer({
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
                   Captured {fmtDate(note.created_at)} · unedited
                 </div>
+                {note.audio_path && (
+                  <div style={{ marginBottom: 14 }}>
+                    {audioUrl ? (
+                      <audio controls src={audioUrl} style={{ width: '100%' }} />
+                    ) : (
+                      <button onClick={handlePlayRecording} disabled={audioLoading} style={btnStyle}>
+                        {audioLoading ? 'Loading…' : '▶ Play recording'}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div
                   style={{
                     fontFamily: 'var(--font-mono)',

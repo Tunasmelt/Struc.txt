@@ -60,6 +60,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Restyled the board (`Board`/`NoteCard`/`Rail`/`Topbar`) to the prototype's dark-chrome visual language (sticky filter bar with date-range/tag/sort chips, rail sections for templates/view/open action items, pin badges) instead of the earlier lighter "modern flat" treatment, per explicit user request to match the original prototype rather than the previously chosen direction
 
 ### Added
+- Audio capture: a "Record" tab in `CaptureModal.tsx` using `MediaRecorder`, a feature-detected live transcript via the Web Speech API, and a real Web-Audio-driven level meter; recordings upload to a new private Supabase Storage bucket (`supabase/migrations/007_audio_storage_bucket.sql`, RLS-scoped per user); an async Groq Whisper pass (`lib/ai/transcribe.ts`) cleans up the transcript and then runs the unchanged phase 2 restructuring pipeline against it (phase 6)
+- `getAudioSignedUrl` action + a "▶ Play recording" affordance in the board drawer, for playback via a private, time-limited signed URL rather than any public path (phase 6)
 - Real Postgres full-text search (`searchNoteIds` in `app/actions/notes.ts`, using Supabase `.textSearch()` against the existing `notes.search` GIN index), debounced from the board's search box and combined with the existing tag/date-range/template filters (phase 5)
 
 ### Fixed

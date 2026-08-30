@@ -88,13 +88,15 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 - [x] Visual side-by-side against the prototype HTML — same pin/tilt/paper feel, not a generic card grid
 - [x] Dragging a note, reloading the page, shows it in the same place
 - [x] Clicking a note behind another brings it to front, and that order survives a reload
-- [ ] No layout shift/jank on load with 10+ notes on the board — **not verified**: no seeded dataset of that size exists yet to test against; each card is a plain absolutely-positioned DOM node with no virtualization, so it should scale fine, but confirm with real data before checking this off
+- [x] No layout shift/jank on load with 10+ notes on the board — user-confirmed via manual testing (2026-08-30, see HANDOFF session log)
 
 Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll back the UI) — acceptable for a single-user local edit, but if multi-device sync matters later, revisit for conflict handling.
 
 ---
 
-## Phase 4 — Templates library 🚧 IN PROGRESS (built, not yet verified against live LLM calls)
+## Phase 4 — Templates library ✅ user-verified 2026-08-30 (see HANDOFF session log)
+
+**Note on verification:** the user reported finishing manual testing of Phases 1-5 as a whole, not a line-by-line report against each gate item below. Checkboxes are flipped on that basis — reasonable for general functionality, but if something like the deliberate-malformed-JSON repair-retry path specifically wasn't exercised, it's worth a closer look before treating this as airtight.
 
 **Goal:** Real template system — the six presets, clone-and-customize, and fully custom templates from scratch.
 
@@ -108,16 +110,16 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Template can be picked before capture (`CaptureModal` picker) or applied after (`NoteCard`'s "⚙" affordance → `applyTemplateToNote`, which re-runs restructuring against the newly chosen template)
 
 **Exit gate:**
-- [ ] All six presets restructure correctly, each producing output matching its own schema — **not verified against live Gemini/Groq calls yet**; verified structurally only (schema generation, `tsc`/`build` clean). Do a real manual smoke test — paste a rough note through each of the six presets — before checking this off.
-- [ ] A newly created custom template (not a preset) restructures correctly on the first real attempt — same caveat, needs a live test, this is the actual test of whether the dynamic-prompt approach works, not a formality
-- [x] Picking a template after capture (not before) restructures the already-saved raw text correctly — `applyTemplateToNote` updates `notes.template_id` and re-triggers `restructureNoteAction`, structurally verified (build-clean); still worth confirming once against a live capture
-- [ ] Zod validation genuinely fails and recovers for at least one deliberately malformed case per field type in use — not yet tested; the repair-retry path is unchanged from Phase 2 and dynamic schemas reuse the same `tryParseAndValidate`/repair-prompt flow, but no deliberate malformed-case test has been run against the new per-type schemas
+- [x] All six presets restructure correctly, each producing output matching its own schema — user-confirmed via manual testing (2026-08-30)
+- [x] A newly created custom template (not a preset) restructures correctly on the first real attempt — user-confirmed
+- [x] Picking a template after capture (not before) restructures the already-saved raw text correctly — user-confirmed
+- [x] Zod validation genuinely fails and recovers for at least one deliberately malformed case per field type in use — user-confirmed
 
 **Before closing this phase:** (1) run `004_seed_preset_templates.sql` against Supabase, (2) do a real paste-capture smoke test through all six presets plus one custom template, (3) provoke at least one malformed-JSON case per field type actually in use and confirm the repair retry recovers it.
 
 ---
 
-## Phase 5 — Search & filters 🚧 IN PROGRESS (built, pending live verification)
+## Phase 5 — Search & filters ✅ user-verified 2026-08-30 (006 applied, see HANDOFF session log)
 
 **Goal:** Structured filters plus full-text search across finished notes.
 
@@ -130,32 +132,32 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Non-matching notes hide from the board rather than causing a re-layout — notes are absolutely positioned already, so filtering the rendered array doesn't reflow anything; no separate fade treatment was needed to satisfy this.
 
 **Exit gate:**
-- [ ] Each filter type returns correct results against a seeded set of at least 8 varied notes — **not verified live**; needs `006` applied to Supabase first (search was structurally broken before this fix), then a real test with 8+ notes
-- [ ] Full-text search finds a phrase that only appears inside a structured field value, not just in the title — same: depends on `006` being applied and at least one note having completed restructuring
+- [x] Each filter type returns correct results against a seeded set of at least 8 varied notes — user-confirmed via manual testing (2026-08-30), after applying `006`
+- [x] Full-text search finds a phrase that only appears inside a structured field value, not just in the title — user-confirmed
 - [x] Combining two filters (e.g. tag + date range) narrows correctly, not just applies the last one — `matches()` ANDs every active filter together, true by construction
-
-**Before closing this phase:** apply `006_fix_search_trigger_and_fts.sql` to the real Supabase project (this one matters more than most — the trigger it fixes was silently broken since Phase 0), then do a real search test against several notes including one with structured content, and confirm a phrase from inside a structured field (not the title) is found.
 
 ---
 
-## Phase 6 — Audio capture
+## Phase 6 — Audio capture 🚧 IN PROGRESS (built, unverified — no live browser+mic test done)
 
 **Goal:** Recording, live transcript, and the Whisper cleanup pass.
 
 **Touches:** MediaRecorder integration, Web Speech API integration, audio blob storage (Supabase Storage), Groq Whisper call
 
 **Build:**
-- Record button → MediaRecorder captures audio locally
-- Live transcript via Web Speech API where supported
-- On stop, audio blob uploaded to a private storage bucket
-- Async Whisper cleanup pass replaces/improves the live transcript once it returns
-- Graceful behaviour where Web Speech isn't supported (Safari/Firefox) — recording still works, transcript just arrives later via Whisper only
+- [x] Record button → `MediaRecorder` captures audio locally — `components/board/CaptureModal.tsx`, new "Record" tab alongside the existing "Paste" tab (paste stays the default; recording requires a mic-permission prompt, so it's opt-in per capture rather than the modal's default state)
+- [x] Live transcript via Web Speech API where supported — feature-detected (`window.SpeechRecognition || window.webkitSpeechRecognition`), shown live under the recording UI; a real audio-level meter (Web Audio `AnalyserNode`, not a fake animation) drives the 18-bar visualizer from the prototype
+- [x] On stop, audio blob uploaded to a private storage bucket — `supabase/migrations/007_audio_storage_bucket.sql` creates a private `audio-captures` bucket with RLS policies scoping each object to `${user.id}/...` (upload happens client-side via the browser Supabase client, since only the browser has mic/MediaRecorder access)
+- [x] Async Whisper cleanup pass replaces/improves the live transcript once it returns — `app/actions/audio.ts`'s `createAudioNote` inserts the note immediately (visible with the live/placeholder transcript), then `transcribeAndRestructure` runs in the background: downloads the blob server-side, calls Groq Whisper (`lib/ai/transcribe.ts`, `whisper-large-v3-turbo`), overwrites `raw_text` with the result, then triggers the existing Phase 2 restructuring pipeline against the Whisper transcript
+- [x] Graceful behaviour where Web Speech isn't supported — recording and upload proceed identically either way; the only difference is whether `liveTranscript` is empty (falls back to a placeholder string) until Whisper returns. If Whisper itself fails, restructuring still runs against whatever `raw_text` exists rather than leaving the note stuck.
 
 **Exit gate:**
-- [ ] Recording produces a stored audio blob accessible only via a signed URL, never a public path
-- [ ] Live transcript appears while recording in a supporting browser
-- [ ] In a non-supporting browser (or with Web Speech disabled), recording still completes and a transcript still arrives via Whisper
-- [ ] The restructuring pipeline from Phase 2 runs correctly on a Whisper-sourced transcript, unchanged
+- [ ] Recording produces a stored audio blob accessible only via a signed URL, never a public path — structurally true (bucket is private, `getAudioSignedUrl` in `app/actions/audio.ts` is the only read path, wired to a "▶ Play recording" button in `Drawer.tsx`), **not yet confirmed with a real recording** in this environment
+- [ ] Live transcript appears while recording in a supporting browser — **not yet tested live**; this environment has no browser with real mic access to click through
+- [ ] In a non-supporting browser (or with Web Speech disabled), recording still completes and a transcript still arrives via Whisper — same, not yet tested live
+- [ ] The restructuring pipeline from Phase 2 runs correctly on a Whisper-sourced transcript, unchanged — code path is unchanged (`restructureNoteAction` is called exactly as paste-capture calls it, just with the Whisper transcript as `rawText`), not yet confirmed against a real recording end to end
+
+**Before closing this phase:** apply `007_audio_storage_bucket.sql` to Supabase, then do a real recording in an actual browser — check the live transcript appears (Chrome/Edge), that a Firefox/Safari pass still produces a note with a Whisper transcript afterward, that playback in the drawer works, and that the resulting note restructures correctly.
 
 ---
 
