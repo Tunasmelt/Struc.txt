@@ -10,7 +10,7 @@ import ContextMenu from '@/components/board/ContextMenu'
 import ConfirmDeleteModal from '@/components/board/ConfirmDeleteModal'
 import HelpModal from '@/components/board/HelpModal'
 import Toast from '@/components/board/Toast'
-import { getNotes, updateNotePosition, updateNoteFlags, deleteNote, duplicateNote } from '@/app/actions/notes'
+import { getNotes, updateNotePosition, updateNoteFlags, deleteNote, duplicateNote, searchNoteIds } from '@/app/actions/notes'
 import { getTemplates } from '@/app/actions/templates'
 import { AppearanceMode, SPACE } from '@/lib/tokens'
 import { BoardNote, RawNote, ResolvedTemplate, checklistFor, enrichNote, tagsFor, toResolvedTemplate } from '@/components/board/types'
@@ -49,6 +49,33 @@ export default function BoardPage() {
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mousePos = useRef({ x: 0, y: 0 })
+
+  /* ---------- full-text search (Phase 5) ----------
+   * `query` drives real Postgres full-text search (searchNoteIds, via the
+   * notes.search tsvector-backed column) rather than a naive client-side
+   * substring check, debounced so we're not round-tripping per keystroke.
+   * `null` means "no active query" (or results not back yet) — matches()
+   * treats null as "don't filter on query yet" so the board doesn't flash
+   * to empty while a search is in flight. */
+  const [queryMatchIds, setQueryMatchIds] = useState<Set<string> | null>(null)
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current)
+    const trimmed = query.trim()
+    if (!trimmed) {
+      setQueryMatchIds(null)
+      return
+    }
+    searchDebounce.current = setTimeout(() => {
+      searchNoteIds(trimmed)
+        .then((ids) => setQueryMatchIds(new Set(ids)))
+        .catch((err) => console.error('Search failed:', err))
+    }, 250)
+    return () => {
+      if (searchDebounce.current) clearTimeout(searchDebounce.current)
+    }
+  }, [query])
 
   const showToast = useCallback((message: string, undo?: () => void) => {
     setToast({ message, undo: undo ?? null })
@@ -153,15 +180,10 @@ export default function BoardPage() {
         const days = (Date.now() - new Date(n.created_at).getTime()) / 864e5
         if (days > filterRange) return false
       }
-      if (query) {
-        const haystack = [n.title || '', n.tmpl?.name || '', n.raw_text, JSON.stringify(n.latestVersion?.body || {})]
-          .join(' ')
-          .toLowerCase()
-        if (!haystack.includes(query.toLowerCase())) return false
-      }
+      if (query.trim() && queryMatchIds && !queryMatchIds.has(n.id)) return false
       return true
     },
-    [showArchived, filterTmpl, filterTag, filterRange, query]
+    [showArchived, filterTmpl, filterTag, filterRange, query, queryMatchIds]
   )
 
   const sortNotes = useCallback(

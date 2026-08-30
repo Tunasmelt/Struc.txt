@@ -228,3 +228,32 @@ export async function getNotes() {
 
   return data || []
 }
+
+/** Real Postgres full-text search against notes.search (a plain TEXT column
+ *  with a `gin(to_tsvector('english', search))` expression index — see
+ *  001_base_schema.sql). PostgREST's `textSearch` filter applies
+ *  `to_tsvector('english', search) @@ websearch_to_tsquery('english', query)`
+ *  server-side, which the index covers. Returns matching note ids only; the
+ *  caller intersects this with whatever notes it already has loaded rather
+ *  than replacing the load path, since the board needs the full note set
+ *  for drag/pin/stack regardless of the active search query. */
+export async function searchNoteIds(query: string): Promise<string[]> {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('notes')
+    .select('id')
+    .textSearch('search', trimmed, { type: 'websearch', config: 'english' })
+
+  if (error) {
+    console.error('Supabase full-text search error:', error)
+    return []
+  }
+
+  return (data || []).map((row) => row.id as string)
+}

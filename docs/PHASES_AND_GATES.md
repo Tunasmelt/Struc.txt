@@ -117,21 +117,24 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 5 — Search & filters
+## Phase 5 — Search & filters 🚧 IN PROGRESS (built, pending live verification)
 
 **Goal:** Structured filters plus full-text search across finished notes.
 
-**Touches:** indexed attributes, Appwrite fulltext index on concatenated search field, filter UI, chip bar
+**Touches:** `notes.search` (already existed from Phase 0 but was buggy — see below), filter UI, chip bar
 
 **Build:**
-- Filter by tag, date range, template, title
-- Full-text search across concatenated search field (title + raw_text + structured body) using PostgreSQL full-text search
-- Non-matching notes fade/hide on the board rather than the board re-laying-out jarringly
+- [x] Filter by tag, date range, template — `app/board/page.tsx`'s `matches()`, wired to the rail/chip UI pulled forward during the board fidelity pass. Title isn't a separate filter chip; it's covered by full-text search below since `notes.search` includes the title.
+- [x] Full-text search across the concatenated search field (title + raw_text + structured body) using real PostgreSQL full-text search — `searchNoteIds` (`app/actions/notes.ts`) uses Supabase's `.textSearch()`, which the existing `gin(to_tsvector('english', search))` index (from `001_base_schema.sql`) covers. Debounced 250ms from the board's search box.
+- [x] **Bug fix, found while building this**: `update_notes_search_vector()` (the Phase 0 trigger populating `notes.search`) references `NEW.body`, a column that doesn't exist on `notes` (structured content lives in `note_versions.body`) — as currently written in `001_base_schema.sql`, this raises a Postgres error (`record "new" has no field "body"`) on every note insert/update. Whether this has actually been biting in the live project depends on whether the trigger function as currently in the repo is exactly what's deployed there (migrations are manually applied, so it's possible an earlier, different version is what's actually live) — worth checking directly. `supabase/migrations/006_fix_search_trigger_and_fts.sql` fixes it to pull the latest `note_versions` row via subquery, and adds a trigger so a note's `search` column updates when its restructuring finishes (previously nothing re-ran the notes trigger after that async step, so `search` never picked up structured content at all, bug or no bug).
+- [x] Non-matching notes hide from the board rather than causing a re-layout — notes are absolutely positioned already, so filtering the rendered array doesn't reflow anything; no separate fade treatment was needed to satisfy this.
 
 **Exit gate:**
-- [ ] Each filter type returns correct results against a seeded set of at least 8 varied notes
-- [ ] Full-text search finds a phrase that only appears inside a structured field value, not just in the title (note: phrase matching requires quotes due to MariaDB tokenization)
-- [ ] Combining two filters (e.g. tag + date range) narrows correctly, not just applies the last one
+- [ ] Each filter type returns correct results against a seeded set of at least 8 varied notes — **not verified live**; needs `006` applied to Supabase first (search was structurally broken before this fix), then a real test with 8+ notes
+- [ ] Full-text search finds a phrase that only appears inside a structured field value, not just in the title — same: depends on `006` being applied and at least one note having completed restructuring
+- [x] Combining two filters (e.g. tag + date range) narrows correctly, not just applies the last one — `matches()` ANDs every active filter together, true by construction
+
+**Before closing this phase:** apply `006_fix_search_trigger_and_fts.sql` to the real Supabase project (this one matters more than most — the trigger it fixes was silently broken since Phase 0), then do a real search test against several notes including one with structured content, and confirm a phrase from inside a structured field (not the title) is found.
 
 ---
 

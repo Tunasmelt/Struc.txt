@@ -59,7 +59,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 ### Changed
 - Restyled the board (`Board`/`NoteCard`/`Rail`/`Topbar`) to the prototype's dark-chrome visual language (sticky filter bar with date-range/tag/sort chips, rail sections for templates/view/open action items, pin badges) instead of the earlier lighter "modern flat" treatment, per explicit user request to match the original prototype rather than the previously chosen direction
 
+### Added
+- Real Postgres full-text search (`searchNoteIds` in `app/actions/notes.ts`, using Supabase `.textSearch()` against the existing `notes.search` GIN index), debounced from the board's search box and combined with the existing tag/date-range/template filters (phase 5)
+
 ### Fixed
+- `supabase/migrations/006_fix_search_trigger_and_fts.sql`: the phase 0 `update_notes_search_vector()` trigger referenced a nonexistent `notes.body` column (structured content lives in `note_versions.body`), which as written would error on every note insert/update; also added a trigger so a note's `search` column picks up its structured content once restructuring finishes, which nothing previously did (phase 5)
 - `app/globals.css` used Tailwind v3's `@tailwind base/components/utilities` directives while the project runs Tailwind v4, which silently produced zero utility CSS — every Tailwind-styled page (login/signup included) rendered unstyled. Switched to `@import "tailwindcss"`.
 
 ### Changed
