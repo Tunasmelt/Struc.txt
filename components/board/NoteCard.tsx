@@ -21,6 +21,7 @@ interface NoteCardProps {
   onToggleActionItem: (id: string, done: boolean) => void
   onConfirmTag: (id: string) => void
   onRejectTag: (id: string) => void
+  onEditTitle: (id: string, title: string) => void
 }
 
 const labelStyle = {
@@ -125,12 +126,15 @@ export default function NoteCard({
   onContextMenu,
   onToggleActionItem,
   onConfirmTag,
-  onRejectTag
+  onRejectTag,
+  onEditTitle
 }: NoteCardProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(note.title || '')
   const [position, setPosition] = useState({ x: note.position.x, y: note.position.y })
 
   const cardRef = useRef<HTMLElement>(null)
@@ -143,6 +147,17 @@ export default function NoteCard({
     if (!isDragging) setPosition({ x: note.position.x, y: note.position.y })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.position.x, note.position.y])
+
+  useEffect(() => {
+    if (!editingTitle) setTitleDraft(note.title || '')
+  }, [note.title, editingTitle])
+
+  const commitTitle = () => {
+    setEditingTitle(false)
+    const next = titleDraft.trim()
+    if (next && next !== (note.title || '')) onEditTitle(note.id, next)
+    else setTitleDraft(note.title || '')
+  }
 
   const tmpl = note.tmpl
   const pinColor = tmpl?.pin ?? DEFAULT_TEMPLATE_PIN
@@ -341,18 +356,61 @@ export default function NoteCard({
         </span>
       </div>
 
-      <h3
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          fontSize: 17,
-          letterSpacing: '-.015em',
-          lineHeight: 1.25,
-          margin: collapsed ? '8px 0 0' : '8px 0 11px'
-        }}
-      >
-        {note.title || 'Untitled capture'}
-      </h3>
+      {editingTitle ? (
+        <input
+          data-act="edit-title"
+          autoFocus
+          value={titleDraft}
+          maxLength={100}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitTitle()
+            } else if (e.key === 'Escape') {
+              setTitleDraft(note.title || '')
+              setEditingTitle(false)
+            }
+          }}
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            fontSize: 17,
+            letterSpacing: '-.015em',
+            lineHeight: 1.25,
+            margin: collapsed ? '8px 0 0' : '8px 0 11px',
+            width: '100%',
+            background: 'var(--well)',
+            border: '1px solid var(--brass)',
+            borderRadius: 6,
+            padding: '2px 6px',
+            color: 'var(--ink)'
+          }}
+        />
+      ) : (
+        <h3
+          data-act="edit-title"
+          title="Click to rename"
+          onClick={(e) => {
+            e.stopPropagation()
+            setEditingTitle(true)
+          }}
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            fontSize: 17,
+            letterSpacing: '-.015em',
+            lineHeight: 1.25,
+            margin: collapsed ? '8px 0 0' : '8px 0 11px',
+            cursor: 'text'
+          }}
+        >
+          {note.title || 'Untitled capture'}
+        </h3>
+      )}
 
       {!collapsed && (
         <>

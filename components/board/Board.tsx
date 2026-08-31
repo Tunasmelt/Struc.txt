@@ -36,6 +36,7 @@ interface BoardProps {
   onToggleActionItem: (id: string, done: boolean) => void
   onConfirmTag: (id: string) => void
   onRejectTag: (id: string) => void
+  onEditTitle: (id: string, title: string) => void
 }
 
 function chipStyle(on: boolean): CSSProperties {
@@ -73,7 +74,8 @@ export default function Board({
   onContextMenu,
   onToggleActionItem,
   onConfirmTag,
-  onRejectTag
+  onRejectTag,
+  onEditTitle
 }: BoardProps) {
   if (loading) {
     return (
@@ -176,6 +178,7 @@ export default function Board({
               onToggleActionItem={onToggleActionItem}
               onConfirmTag={onConfirmTag}
               onRejectTag={onRejectTag}
+              onEditTitle={onEditTitle}
             />
           ))
         )}

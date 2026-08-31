@@ -10,7 +10,17 @@ import ContextMenu from '@/components/board/ContextMenu'
 import ConfirmDeleteModal from '@/components/board/ConfirmDeleteModal'
 import HelpModal from '@/components/board/HelpModal'
 import Toast from '@/components/board/Toast'
-import { getNotes, updateNotePosition, updateNoteFlags, deleteNote, duplicateNote, searchNoteIds } from '@/app/actions/notes'
+import {
+  getNotes,
+  updateNotePosition,
+  updateNoteFlags,
+  deleteNote,
+  duplicateNote,
+  searchNoteIds,
+  updateNoteTitle,
+  updateNoteRawText,
+  saveEditedNoteVersion
+} from '@/app/actions/notes'
 import { getTemplates } from '@/app/actions/templates'
 import { confirmTag, rejectTag, toggleActionItem } from '@/app/actions/enrich'
 import { AppearanceMode, BOARD_THEMES, BoardTheme, SPACE } from '@/lib/tokens'
@@ -477,6 +487,46 @@ export default function BoardPage() {
     })
   }, [loadNotes])
 
+  /* ---------- editing: title, raw text, structured fields ---------- */
+  const handleEditTitle = useCallback((id: string, title: string) => {
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)))
+    updateNoteTitle(id, title).catch((err) => {
+      console.error('Failed to update note title:', err)
+      loadNotes()
+    })
+  }, [loadNotes])
+
+  const handleEditRawText = useCallback(
+    async (id: string, rawText: string) => {
+      try {
+        await updateNoteRawText(id, rawText)
+        setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, raw_text: rawText } : n)))
+        showToast('Raw capture updated')
+      } catch (err) {
+        console.error('Failed to update raw text:', err)
+        showToast('Could not update raw capture')
+      }
+    },
+    [showToast]
+  )
+
+  // Saves an edited structured field set as a NEW note_versions row (never
+  // an in-place update — same insert-only rule Phase 8's re-run already
+  // follows), then reloads so the note picks up its new latestVersion.
+  const handleSaveEditedFields = useCallback(
+    async (id: string, templateId: string | null, body: Record<string, unknown>) => {
+      try {
+        await saveEditedNoteVersion(id, templateId, body)
+        await loadNotes()
+        showToast('Note updated')
+      } catch (err) {
+        console.error('Failed to save edited fields:', err)
+        showToast('Could not save changes')
+      }
+    },
+    [loadNotes, showToast]
+  )
+
   /* ---------- export ---------- */
   const handleExport = useCallback(
     async (fmt: 'image' | 'md' | 'txt' | 'pdf') => {
@@ -673,6 +723,7 @@ export default function BoardPage() {
           onToggleActionItem={handleToggleActionItem}
           onConfirmTag={handleConfirmTag}
           onRejectTag={handleRejectTag}
+          onEditTitle={handleEditTitle}
         />
       </div>
 
@@ -693,6 +744,9 @@ export default function BoardPage() {
         onToggleActionItem={handleToggleActionItem}
         onConfirmTag={handleConfirmTag}
         onRejectTag={handleRejectTag}
+        onEditTitle={handleEditTitle}
+        onEditRawText={handleEditRawText}
+        onSaveEditedFields={handleSaveEditedFields}
       />
 
       {ctxNote && (

@@ -5,6 +5,7 @@ import { BoardNote, ChecklistItem, ResolvedTemplate, confirmedTagNames, suggeste
 import { applyTemplateToNote } from '@/app/actions/notes'
 import { getAudioSignedUrl } from '@/app/actions/audio'
 import { noteToText } from '@/lib/board/exportNote'
+import { TemplateField } from '@/lib/prompts/dynamicTemplate'
 
 interface DrawerProps {
   note: BoardNote | null
@@ -21,6 +22,86 @@ interface DrawerProps {
   onToggleActionItem: (id: string, done: boolean) => void
   onConfirmTag: (id: string) => void
   onRejectTag: (id: string) => void
+  onEditTitle: (id: string, title: string) => void
+  onEditRawText: (id: string, rawText: string) => void
+  onSaveEditedFields: (id: string, templateId: string | null, body: Record<string, unknown>) => void
+}
+
+/** One editable input per field type — mirrors how NoteCard/Drawer already
+ *  render each type read-only, just swapped for an input/textarea. */
+function FieldEditor({ field, value, onChange }: { field: TemplateField; value: unknown; onChange: (v: unknown) => void }) {
+  const inputStyle = {
+    width: '100%',
+    background: 'var(--well)',
+    border: '1px solid var(--chrome-line)',
+    borderRadius: 7,
+    padding: '7px 9px',
+    color: 'var(--chalk)',
+    fontSize: 13.5
+  }
+  switch (field.type) {
+    case 'longtext':
+      return <textarea value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} rows={4} style={{ ...inputStyle, resize: 'vertical' as const }} />
+    case 'number':
+      return (
+        <input
+          type="number"
+          value={typeof value === 'number' ? value : ''}
+          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          style={inputStyle}
+        />
+      )
+    case 'date':
+      return <input type="date" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
+    case 'select':
+      return (
+        <select value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} style={inputStyle}>
+          <option value="">—</option>
+          {(field.options || []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      )
+    case 'tags':
+    case 'list':
+      return (
+        <input
+          type="text"
+          value={Array.isArray(value) ? value.join(', ') : ''}
+          onChange={(e) => onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+          placeholder="Comma-separated"
+          style={inputStyle}
+        />
+      )
+    case 'checklist': {
+      const items = Array.isArray(value) ? (value as ChecklistItem[]) : []
+      const text = items.map((it) => `${it.done ? '[x]' : '[ ]'} ${it.item}`).join('\n')
+      return (
+        <textarea
+          value={text}
+          onChange={(e) => {
+            const parsed = e.target.value
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => {
+                const done = /^\[x\]/i.test(line)
+                const item = line.replace(/^\[[ xX]\]\s*/, '')
+                return { item, done }
+              })
+            onChange(parsed)
+          }}
+          placeholder="One per line, start with [x] if done"
+          rows={3}
+          style={{ ...inputStyle, resize: 'vertical' as const, fontFamily: 'var(--font-mono)' }}
+        />
+      )
+    }
+    default:
+      return <input type="text" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
+  }
 }
 
 function fmtDate(d: string | null) {
@@ -65,7 +146,10 @@ export default function Drawer({
   onToggleChecklistItem,
   onToggleActionItem,
   onConfirmTag,
-  onRejectTag
+  onRejectTag,
+  onEditTitle,
+  onEditRawText,
+  onSaveEditedFields
 }: DrawerProps) {
   const [showRaw, setShowRaw] = useState(false)
   const [rerunKey, setRerunKey] = useState('')
@@ -74,11 +158,21 @@ export default function Drawer({
   const [audioLoading, setAudioLoading] = useState(false)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [editingRaw, setEditingRaw] = useState(false)
+  const [rawDraft, setRawDraft] = useState('')
+  const [editingFields, setEditingFields] = useState(false)
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, unknown>>({})
+  const [savingFields, setSavingFields] = useState(false)
 
   useEffect(() => {
     setAudioUrl(null)
     setSelectedVersionId(null)
     setCopied(false)
+    setEditingTitle(false)
+    setEditingRaw(false)
+    setEditingFields(false)
   }, [note?.id])
 
   const handleCopyText = async () => {
@@ -90,6 +184,31 @@ export default function Drawer({
     } catch (err) {
       console.error('Failed to copy note text:', err)
     }
+  }
+
+  const startEditTitle = () => {
+    if (!note) return
+    setTitleDraft(note.title || '')
+    setEditingTitle(true)
+  }
+
+  const commitTitle = () => {
+    if (!note) return
+    setEditingTitle(false)
+    const next = titleDraft.trim()
+    if (next && next !== (note.title || '')) onEditTitle(note.id, next)
+  }
+
+  const startEditRaw = () => {
+    if (!note) return
+    setRawDraft(note.raw_text)
+    setEditingRaw(true)
+  }
+
+  const saveRaw = () => {
+    if (!note) return
+    onEditRawText(note.id, rawDraft)
+    setEditingRaw(false)
   }
 
   // Newest first. `note.note_versions` carries every version (getNotes()
@@ -136,6 +255,27 @@ export default function Drawer({
   const tags = Array.from(new Set([...fieldTags, ...(note ? confirmedTagNames(note) : [])]))
   const suggested = note ? suggestedNoteTags(note) : []
   const enrichedActions = note ? openActionItemRows(note) : []
+
+  // Editing structural fields only makes sense on the latest version — see
+  // the same isLatestVersion guard already used for the checklist toggles
+  // above; editing history here would be just as confusing as toggling a
+  // checkbox in it.
+  const startEditFields = () => {
+    if (!tmpl) return
+    setFieldDrafts({ ...body })
+    setEditingFields(true)
+  }
+
+  const saveFields = async () => {
+    if (!note || !tmpl) return
+    setSavingFields(true)
+    try {
+      await onSaveEditedFields(note.id, tmpl.id, fieldDrafts)
+      setEditingFields(false)
+    } finally {
+      setSavingFields(false)
+    }
+  }
 
   const handleRerun = async () => {
     if (!note || rerunBusy) return
@@ -189,9 +329,45 @@ export default function Drawer({
               <span>{tmpl?.name ?? 'Untitled template'}</span>
               <span>· {fmtDate(note.created_at)}</span>
             </div>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-.025em', margin: '10px 0 0', lineHeight: 1.15 }}>
-              {note.title || 'Untitled capture'}
-            </h2>
+            {editingTitle ? (
+              <input
+                autoFocus
+                value={titleDraft}
+                maxLength={100}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitTitle()
+                  } else if (e.key === 'Escape') {
+                    setEditingTitle(false)
+                  }
+                }}
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 700,
+                  fontSize: 22,
+                  letterSpacing: '-.025em',
+                  margin: '10px 0 0',
+                  lineHeight: 1.15,
+                  width: '100%',
+                  background: 'var(--well)',
+                  border: '1px solid var(--brass)',
+                  borderRadius: 6,
+                  padding: '2px 6px',
+                  color: 'var(--chalk)'
+                }}
+              />
+            ) : (
+              <h2
+                title="Click to rename"
+                onClick={startEditTitle}
+                style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22, letterSpacing: '-.025em', margin: '10px 0 0', lineHeight: 1.15, cursor: 'text' }}
+              >
+                {note.title || 'Untitled capture'}
+              </h2>
+            )}
             <button
               onClick={onClose}
               aria-label="Close note"
@@ -264,8 +440,15 @@ export default function Drawer({
           <div style={{ padding: '16px 18px 30px', overflowY: 'auto', flex: 1 }}>
             {showRaw ? (
               <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
-                  Captured {fmtDate(note.created_at)} · unedited
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                    Captured {fmtDate(note.created_at)}
+                  </span>
+                  {!editingRaw && (
+                    <button onClick={startEditRaw} style={{ fontSize: 12, color: 'var(--brass-text)', fontWeight: 600 }}>
+                      Edit
+                    </button>
+                  )}
                 </div>
                 {note.audio_path && (
                   <div style={{ marginBottom: 14 }}>
@@ -278,24 +461,55 @@ export default function Drawer({
                     )}
                   </div>
                 )}
-                <div
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12.5,
-                    lineHeight: 1.7,
-                    color: 'var(--chalk-dim)',
-                    whiteSpace: 'pre-wrap',
-                    background: 'var(--well)',
-                    border: '1px solid var(--chrome-line)',
-                    padding: 14,
-                    borderRadius: 8
-                  }}
-                >
-                  {note.raw_text}
-                </div>
+                {editingRaw ? (
+                  <>
+                    <textarea
+                      autoFocus
+                      value={rawDraft}
+                      onChange={(e) => setRawDraft(e.target.value)}
+                      rows={10}
+                      style={{
+                        width: '100%',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 12.5,
+                        lineHeight: 1.7,
+                        color: 'var(--chalk)',
+                        background: 'var(--well)',
+                        border: '1px solid var(--brass)',
+                        padding: 14,
+                        borderRadius: 8,
+                        resize: 'vertical'
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button className="nf-btn" onClick={saveRaw} style={{ ...btnStyle, border: '1px solid var(--brass)', background: 'var(--brass)', color: 'var(--brass-ink)' }}>
+                        Save
+                      </button>
+                      <button className="nf-btn" onClick={() => setEditingRaw(false)} style={btnStyle}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12.5,
+                      lineHeight: 1.7,
+                      color: 'var(--chalk-dim)',
+                      whiteSpace: 'pre-wrap',
+                      background: 'var(--well)',
+                      border: '1px solid var(--chrome-line)',
+                      padding: 14,
+                      borderRadius: 8
+                    }}
+                  >
+                    {note.raw_text}
+                  </div>
+                )}
                 <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--chrome-line)' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em' }}>
-                    This is what you gave it. Nothing here is ever overwritten.
+                    This is what you captured. Editing it doesn't touch any already-restructured version below — re-run if you want the structured content to reflect your edit.
                   </span>
                 </div>
               </div>
@@ -304,64 +518,103 @@ export default function Drawer({
                 {!tmpl ? (
                   <p style={{ fontSize: 13, color: 'var(--muted)' }}>Still restructuring…</p>
                 ) : (
-                  tmpl.fields
-                    .slice()
-                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                    .map((field) => {
-                      const value = body[field.key]
-                      if (value === undefined || value === null || value === '' || field.type === 'checklist' || field.type === 'tags') return null
-                      const lines = Array.isArray(value) ? value.map(String) : [String(value)]
-                      return (
-                        <div key={field.key} style={{ marginBottom: 16 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
-                            {field.label}
-                          </span>
-                          <div style={{ lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
-                            {lines.map((l, i) => (
-                              <div key={i}>{l}</div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })
+                  <>
+                    {isLatestVersion && (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 10 }}>
+                        {editingFields ? (
+                          <>
+                            <button className="nf-btn" onClick={saveFields} disabled={savingFields} style={{ ...btnStyle, border: '1px solid var(--brass)', background: 'var(--brass)', color: 'var(--brass-ink)' }}>
+                              {savingFields ? 'Saving…' : 'Save'}
+                            </button>
+                            <button className="nf-btn" onClick={() => setEditingFields(false)} disabled={savingFields} style={btnStyle}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={startEditFields} style={{ fontSize: 12, color: 'var(--brass-text)', fontWeight: 600 }}>
+                            Edit fields
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {editingFields
+                      ? tmpl.fields
+                          .slice()
+                          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                          .map((field) => (
+                            <div key={field.key} style={{ marginBottom: 14 }}>
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
+                                {field.label}
+                              </span>
+                              <FieldEditor
+                                field={field}
+                                value={fieldDrafts[field.key]}
+                                onChange={(v) => setFieldDrafts((prev) => ({ ...prev, [field.key]: v }))}
+                              />
+                            </div>
+                          ))
+                      : tmpl.fields
+                          .slice()
+                          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                          .map((field) => {
+                            const value = body[field.key]
+                            if (value === undefined || value === null || value === '' || field.type === 'checklist' || field.type === 'tags') return null
+                            const lines = Array.isArray(value) ? value.map(String) : [String(value)]
+                            return (
+                              <div key={field.key} style={{ marginBottom: 16 }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
+                                  {field.label}
+                                </span>
+                                <div style={{ lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
+                                  {lines.map((l, i) => (
+                                    <div key={i}>{l}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                  </>
                 )}
 
-                <div style={{ marginBottom: 16 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
-                    Tags
-                  </span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
-                    {tags.length === 0 && suggested.length === 0 && '—'}
-                    {tags.map((t) => (
-                      <span key={t}>#{t}</span>
-                    ))}
-                    {suggested.map((t) => (
-                      <span
-                        key={t.id}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          fontSize: 12,
-                          color: 'var(--muted)',
-                          border: '1px dashed var(--chrome-line)',
-                          borderRadius: 99,
-                          padding: '2px 5px 2px 9px'
-                        }}
-                      >
-                        #{t.tags!.name}
-                        <button onClick={() => onConfirmTag(t.id)} aria-label={`Confirm tag ${t.tags!.name}`} style={{ color: 'var(--brass-text)' }}>
-                          ✓
-                        </button>
-                        <button onClick={() => onRejectTag(t.id)} aria-label={`Dismiss tag ${t.tags!.name}`} style={{ color: 'var(--muted)' }}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                {!editingFields && (
+                  <div style={{ marginBottom: 16 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
+                      Tags
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, lineHeight: 1.55, color: 'var(--drawer-fg)', fontSize: 14 }}>
+                      {tags.length === 0 && suggested.length === 0 && '—'}
+                      {tags.map((t) => (
+                        <span key={t}>#{t}</span>
+                      ))}
+                      {suggested.map((t) => (
+                        <span
+                          key={t.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            fontSize: 12,
+                            color: 'var(--muted)',
+                            border: '1px dashed var(--chrome-line)',
+                            borderRadius: 99,
+                            padding: '2px 5px 2px 9px'
+                          }}
+                        >
+                          #{t.tags!.name}
+                          <button onClick={() => onConfirmTag(t.id)} aria-label={`Confirm tag ${t.tags!.name}`} style={{ color: 'var(--brass-text)' }}>
+                            ✓
+                          </button>
+                          <button onClick={() => onRejectTag(t.id)} aria-label={`Dismiss tag ${t.tags!.name}`} style={{ color: 'var(--muted)' }}>
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {enrichedActions.length > 0 && (
+                {!editingFields && enrichedActions.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
                       Extracted action items
@@ -383,7 +636,7 @@ export default function Drawer({
                   </div>
                 )}
 
-                {actions.length > 0 && (
+                {!editingFields && actions.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--brass-text)', display: 'block', marginBottom: 5 }}>
                       Action items
@@ -411,6 +664,7 @@ export default function Drawer({
                   </div>
                 )}
 
+                {!editingFields && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--chrome-line)', flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em' }}>Re-run as</span>
                   <select
@@ -431,6 +685,7 @@ export default function Drawer({
                     Keeps every earlier version. Nothing is lost by trying another shape.
                   </span>
                 </div>
+                )}
               </div>
             )}
           </div>

@@ -13,7 +13,7 @@ import { restructureNoteAction } from './restructure'
 // completed. Real bug this project shipped with; removed rather than
 // worked around.
 
-export async function createNote(rawText: string, templateId?: string | null) {
+export async function createNote(rawText: string, templateId?: string | null, titleOverride?: string | null) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,9 +21,10 @@ export async function createNote(rawText: string, templateId?: string | null) {
     throw new Error('User not authenticated')
   }
 
-  // Extract title from first line or default
+  // A user-typed title wins; otherwise fall back to the first line of the capture.
+  const trimmedOverride = titleOverride?.trim()
   const firstLine = rawText.trim().split('\n')[0] || ''
-  const title = firstLine.substring(0, 100) || 'Untitled Note'
+  const title = trimmedOverride || firstLine.substring(0, 100) || 'Untitled Note'
 
   const { data, error } = await supabase
     .from('notes')
@@ -121,6 +122,107 @@ export async function updateNoteFlags(noteId: string, patch: { pinned?: boolean;
     console.error('Supabase update note flags error:', error)
     throw new Error(`Failed to update note: ${error.message}`)
   }
+}
+
+/** Renames a note. Purely cosmetic (notes.title), doesn't touch raw_text or
+ *  any note_versions row. */
+export async function updateNoteTitle(noteId: string, title: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const trimmed = title.trim().substring(0, 100)
+  const { error } = await supabase
+    .from('notes')
+    .update({ title: trimmed || 'Untitled capture' })
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('Supabase update note title error:', error)
+    throw new Error(`Failed to update note title: ${error.message}`)
+  }
+}
+
+/** Edits the raw capture text directly. The spec's original "nothing here
+ *  is ever overwritten" promise assumed raw_text was read-only forever —
+ *  the user explicitly asked to be able to fix a bad transcript/paste, so
+ *  this is a deliberate, acknowledged departure from that, not an
+ *  oversight. It does NOT touch any existing note_versions row or trigger
+ *  a re-restructure automatically — the note's current structured content
+ *  stays exactly as it was until the user explicitly re-runs it (drawer's
+ *  "Re-run as" control), so editing raw text alone can't silently
+ *  invalidate an already-reviewed structured version. */
+export async function updateNoteRawText(noteId: string, rawText: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { error } = await supabase
+    .from('notes')
+    .update({ raw_text: rawText })
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error('Supabase update note raw text error:', error)
+    throw new Error(`Failed to update note text: ${error.message}`)
+  }
+}
+
+/** Saves a manually-edited structured body as a NEW note_versions row,
+ *  never an UPDATE to an existing one — consistent with how "re-run as a
+ *  different template" already works (Phase 8: versions are insert-only,
+ *  history is never mutated in place). model_used/prompt_version flag it
+ *  as a manual edit rather than an LLM result, so the drawer/version
+ *  picker can tell the two apart if that ever matters later. */
+export async function saveEditedNoteVersion(
+  noteId: string,
+  templateId: string | null,
+  body: Record<string, unknown>
+) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('User not authenticated')
+  }
+
+  const { data: note, error: fetchError } = await supabase
+    .from('notes')
+    .select('id')
+    .eq('id', noteId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (fetchError || !note) {
+    throw new Error(`Failed to load note: ${fetchError?.message || 'not found'}`)
+  }
+
+  const { data, error } = await supabase
+    .from('note_versions')
+    .insert({
+      note_id: noteId,
+      body,
+      model_used: 'manual-edit',
+      prompt_version: 'manual',
+      template_id: templateId,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Supabase insert edited note_version error:', error)
+    throw new Error(`Failed to save edited note: ${error.message}`)
+  }
+
+  return data
 }
 
 export async function deleteNote(noteId: string) {

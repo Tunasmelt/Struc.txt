@@ -52,6 +52,7 @@ function pickAudioMimeType(): string {
 export default function CaptureModal({ open, onClose, onCreated, templates }: CaptureModalProps) {
   const [mode, setMode] = useState<CaptureMode>('paste')
   const [raw, setRaw] = useState('')
+  const [title, setTitle] = useState('')
   const [templateId, setTemplateId] = useState<string>('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -206,8 +207,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
         .upload(path, blob, { contentType: blob.type })
       if (uploadError) throw uploadError
 
-      await createAudioNote(path, liveTranscript, templateId || null)
+      await createAudioNote(path, liveTranscript, templateId || null, title || null)
       setLiveTranscript('')
+      setTitle('')
       onCreated()
       onClose()
     } catch (err) {
@@ -222,8 +224,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     setWorking(true)
     setError(null)
     try {
-      await createNote(raw, templateId || null)
+      await createNote(raw, templateId || null, title || null)
       setRaw('')
+      setTitle('')
       onCreated()
       onClose()
     } catch (err) {
@@ -292,6 +295,28 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
               Paste
             </button>
           </div>
+
+          <label
+            className="mb-1.5 block text-[10.5px] uppercase"
+            style={{ fontFamily: 'var(--font-mono)', letterSpacing: '.08em', color: 'var(--muted)' }}
+          >
+            Title (optional — otherwise taken from the first line)
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled capture"
+            maxLength={100}
+            className="mb-3 w-full rounded-[10px] p-[10px]"
+            style={{
+              background: 'var(--well)',
+              border: '1px solid var(--chrome-line)',
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              color: 'var(--chalk)'
+            }}
+          />
 
           <label
             className="mb-1.5 block text-[10.5px] uppercase"

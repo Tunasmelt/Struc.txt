@@ -12,7 +12,12 @@ const AUDIO_BUCKET = 'audio-captures'
  *  doesn't). `liveTranscript` is whatever the Web Speech API produced during
  *  recording, if the browser supports it — shown immediately as a
  *  placeholder while the Whisper cleanup pass runs in the background. */
-export async function createAudioNote(storagePath: string, liveTranscript: string, templateId?: string | null) {
+export async function createAudioNote(
+  storagePath: string,
+  liveTranscript: string,
+  templateId?: string | null,
+  titleOverride?: string | null
+) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,8 +26,9 @@ export async function createAudioNote(storagePath: string, liveTranscript: strin
   }
 
   const placeholderText = liveTranscript.trim() || '(audio capture — transcript pending)'
+  const trimmedOverride = titleOverride?.trim()
   const firstLine = liveTranscript.trim().split('\n')[0] || ''
-  const title = firstLine.substring(0, 100) || 'Untitled capture'
+  const title = trimmedOverride || firstLine.substring(0, 100) || 'Untitled capture'
 
   const { data, error } = await supabase
     .from('notes')
