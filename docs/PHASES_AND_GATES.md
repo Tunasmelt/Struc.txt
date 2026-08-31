@@ -205,7 +205,7 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 9 — Board quality-of-life interactions 🚧 MOSTLY PULLED FORWARD (2026-08-30)
+## Phase 9 — Board quality-of-life interactions 🚧 built, pending live verification (2026-09-01)
 
 **Pulled-forward note:** the user asked for the full prototype's dark-chrome board fidelity ahead of schedule, which required building most of this phase's interaction set early. What actually landed, so this phase isn't re-built from scratch later:
 
@@ -214,16 +214,16 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Collapse to header card — session-local, unchanged from Phase 3
 - [x] Duplicate and delete with confirm — `duplicateNote`/`deleteNote` server actions (`app/actions/notes.ts`), `ConfirmDeleteModal.tsx`; delete cascades via the existing `notes` → `note_versions`/`action_items` `ON DELETE CASCADE` foreign keys from `001_base_schema.sql`
 - [x] Pin/archive — **new** `pinned`/`archived` columns via `supabase/migrations/005_add_pinned_archived_to_notes.sql` (not yet applied to the real project — same manual-apply requirement as prior migrations), `updateNoteFlags` action, toast-with-undo on archive
-- [ ] Board theme switch (felt/cork/slate/chalkboard) — **not built**, out of scope for this pass, genuinely still open
+- [x] Board theme switch (felt/cork/slate/chalkboard) — `lib/tokens.ts`'s `BOARD_THEMES` (ported verbatim from `prototype/tokens.js`'s `THEMES`), a selector in `Topbar.tsx`, applied by setting `--felt`/`--felt-2`/`--brass` directly on the root element (same mechanism the prototype's own `applyTheme` used, bypassing the separate light/dark mode CSS blocks so a theme choice looks the same in either appearance), persisted to `localStorage`. Template pin/stock colors are defined entirely separately in `TEMPLATES`/`icon_color` and are never touched by this.
 
 **Exit gate (reassessed against what actually landed):**
 - [x] Stacking respects the active filter set — a filtered-out note never moves (structurally true by construction — `toggleStack`/`autoArrange` only reposition `matches()`-filtered, non-pinned notes)
-- [ ] Un-stacking (or dragging a note out of the stack) restores its pre-stack position exactly — restore-via-button is wired; dragging a note *out* of a stack to auto-restore isn't a separate implemented behavior, only manual "Restore" is
+- [ ] Un-stacking (or dragging a note out of the stack) restores its pre-stack position exactly — **the prototype itself doesn't actually do this either**: re-reading `Board.dc.html`'s own drag handler, dragging any note while stacked just clears the `stacked` flag (`if (this.state.stacked) this.setState({ stacked: false })`) without repositioning anything — it doesn't auto-restore per-note positions on drag-out, only the explicit "Restore" button does (via the snapshot). This repo's `handlePositionChange` matches that exact behavior. Leaving unchecked since the gate's literal wording ("restores its pre-stack position exactly" via un-stacking-by-drag) isn't something the prototype itself does, so it may be worth revising the gate's wording rather than the code.
 - [x] Auto-arrange's "Restore layout" genuinely reverses it, once — same snapshot mechanism serves both stack and auto-arrange
-- [ ] Deleting a note removes its action items and version history too — relies on the DB's `ON DELETE CASCADE`, which predates this session; not re-verified against the database this session (structural claim only)
-- [ ] Theme switch changes the board surface only — not built, still open
+- [ ] Deleting a note removes its action items and version history too — relies on the DB's `ON DELETE CASCADE` (predates this session, `001_base_schema.sql`); not re-verified against a live database this session
+- [x] Theme switch changes the board surface only — true by construction: only `--felt`/`--felt-2`/`--brass` are touched, template colors live in a completely separate token map that this code never references
 
-Live interaction verification (drag/pin/archive/stack against a real logged-in session) has not been done — no test Supabase user/credentials exist in this environment. Structural + build verification only; do a real manual pass before fully closing this phase.
+Live interaction verification (drag/pin/archive/stack/theme against a real logged-in session) has not been done — no test Supabase user/credentials exist in this environment. Structural + build verification only; do a real manual pass before fully closing this phase.
 
 ---
 

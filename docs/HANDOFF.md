@@ -8,10 +8,10 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 8 — Version history: all three build items and exit-gate items now structurally done (version browsing was the last piece). Phases 6 (Audio capture) and 7 (Enrichment) from earlier the same day are still unverified against live mic/LLM traffic — nothing has closed those gaps yet. Phase 9's board-theme switching (felt/cork/slate/chalkboard) is the last known genuinely-unbuilt piece from the pulled-forward board work.
-- **Gate status:** `components/board/Drawer.tsx` now has a version picker listing every `note_versions` row for a note (newest first, labeled by date + originating template); switching versions correctly re-resolves both the body *and* the template's field list together — a bug where the checklist/tags sections kept reading `note.latestVersion` instead of the selected version was caught and fixed within this same session, before commit. Checklist checkboxes are disabled while viewing a non-latest version (toggling one is keyed by note+index, so allowing it while browsing history would silently corrupt the current version's state instead of the one being viewed). `tsc`/`build` clean. No live click-through has been done — re-running a note through two templates and browsing both versions in the UI, to see the mechanism work rather than just read the code.
+- **Phase:** 9 — Board quality-of-life interactions: last genuinely-unbuilt piece (board theme switching) is now done, meaning Phases 3-5 and 8-10 are all built and `tsc`/`build`-clean, with Phases 6 and 7 also built but still needing a real microphone/live-LLM pass. **The single biggest remaining gap across this whole session's work is that almost none of it has been click-tested against a real logged-in session** — no test Supabase user/credentials exist in this dev environment, so verification has been structural (code review + clean build) rather than interactive, phase after phase. Whoever picks this up next should prioritize one real end-to-end logged-in walkthrough over building anything new.
+- **Gate status:** `lib/tokens.ts`'s `BOARD_THEMES` (felt/cork/slate/chalkboard, ported verbatim from `prototype/tokens.js`), a selector in `Topbar.tsx`, applied via direct `--felt`/`--felt-2`/`--brass` CSS custom property overrides (same mechanism the prototype used), persisted to `localStorage`. Template pin/stock colors live in a completely separate token map and are structurally untouched by this. `tsc`/`build` clean, not live-verified.
 - **Last touched by:** Claude Code (Sonnet 5)
-- **Last touched:** 2026-08-30
+- **Last touched:** 2026-09-01
 
 ---
 
@@ -41,6 +41,17 @@ Read this first in any new session, before opening any code. This file exists be
 ---
 
 ## 4. Session log (append new entries at the top, newest first)
+
+### [2026-09-01] — Claude Code (Sonnet 5) (Phase 9 — board theme switching)
+- Phase worked on: closing out the one genuinely-unbuilt item left in Phase 9, board theme switching, continuing directly from the previous session's Phase 8 work.
+- What changed:
+  - `lib/tokens.ts`: added `BOARD_THEMES` (felt/cork/slate/chalk), ported verbatim from `prototype/tokens.js`'s `THEMES` object, and a `BoardTheme` type.
+  - `app/board/page.tsx`: `boardTheme` state, persisted to `localStorage` (`noteflow-board-theme`, separate key from the existing light/dark `noteflow-board-appearance`), applied by directly setting `--felt`/`--felt-2`/`--brass` on the root element — the same mechanism the prototype's own `applyTheme` used, which bypasses the separate light/dark mode CSS blocks in `styles/tokens.css` so a theme choice reads the same regardless of light/dark appearance.
+  - `components/board/Topbar.tsx`: a `<select>` next to the existing light/dark toggle listing all four themes by label.
+  - Verified `npx tsc --noEmit` and `npm run build` clean.
+  - While updating the Phase 9 exit gate, re-read the prototype's own drag handler in `Struc.txt Board.dc.html` and found that "un-stacking by dragging a note out restores its pre-stack position exactly" isn't actually something the prototype itself does — dragging any note while stacked just clears the `stacked` flag without repositioning anything; only the explicit "Restore" button uses the position snapshot. This repo's code already matches that exact behavior. Left that gate item unchecked with a note explaining the wording may be worth revising rather than the code, rather than silently declaring it done or silently reinterpreting the gate.
+- Gate status at end of session: Phase 9 build items are all now done; exit gate has 3 of 5 checked (stacking respects filters, restore-layout reverses correctly, theme changes only the board surface), with the drag-out-of-stack item flagged as likely a gate-wording issue rather than a code gap, and the cascade-delete item unchecked pending a live DB check.
+- What the next session should do first: the honest state of this whole multi-session run is that structural/build verification has substituted for live verification across Phases 3 through 10 because no test Supabase credentials exist here. The single highest-value next step is not more building — it's one real logged-in walkthrough covering: board interactions (drag/pin/archive/duplicate/delete/stack/arrange/theme), a paste capture through restructuring and enrichment (watching for two distinct LLM calls), a real audio recording, and version browsing through a re-run note. Only after that should new phase work resume.
 
 ### [2026-08-30] — Claude Code (Sonnet 5) (Phase 8 — Version history: browsing)
 - Phase worked on: finishing Phase 8 (the drawer and re-run action already existed from the board fidelity pass; this session added the missing "browse old versions" piece), continuing directly from Phase 7.

@@ -13,14 +13,16 @@ import Toast from '@/components/board/Toast'
 import { getNotes, updateNotePosition, updateNoteFlags, deleteNote, duplicateNote, searchNoteIds } from '@/app/actions/notes'
 import { getTemplates } from '@/app/actions/templates'
 import { confirmTag, rejectTag, toggleActionItem } from '@/app/actions/enrich'
-import { AppearanceMode, SPACE } from '@/lib/tokens'
+import { AppearanceMode, BOARD_THEMES, BoardTheme, SPACE } from '@/lib/tokens'
 import { BoardNote, RawNote, ResolvedTemplate, checklistFor, enrichNote, tagsFor, toResolvedTemplate } from '@/components/board/types'
 import { exportElementAsImage, exportNotesAsMarkdown, exportNotesAsText } from '@/lib/board/exportNote'
 
 const APPEARANCE_KEY = 'noteflow-board-appearance'
+const THEME_KEY = 'noteflow-board-theme'
 
 export default function BoardPage() {
   const [appearance, setAppearanceState] = useState<AppearanceMode>('light')
+  const [boardTheme, setBoardThemeState] = useState<BoardTheme>('felt')
   const [snapGrid, setSnapGrid] = useState(false)
   const [query, setQuery] = useState('')
   const [filterTmpl, setFilterTmpl] = useState<string | null>(null)
@@ -96,6 +98,33 @@ export default function BoardPage() {
     document.documentElement.setAttribute('data-mode', mode)
     try {
       localStorage.setItem(APPEARANCE_KEY, mode)
+    } catch {
+      // ignore (private browsing, etc.)
+    }
+  }
+
+  /* ---------- board theme (Phase 9 — cosmetic surface only, template
+   * pin/stock colors are untouched by this) ---------- */
+  const applyBoardThemeVars = (theme: BoardTheme) => {
+    const t = BOARD_THEMES[theme]
+    const root = document.documentElement
+    root.style.setProperty('--felt', t.felt)
+    root.style.setProperty('--felt-2', t.felt2)
+    root.style.setProperty('--brass', t.brass)
+    root.setAttribute('data-theme', theme)
+  }
+
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' && (localStorage.getItem(THEME_KEY) as BoardTheme | null)) || 'felt'
+    setBoardThemeState(saved)
+    applyBoardThemeVars(saved)
+  }, [])
+
+  const setBoardTheme = (theme: BoardTheme) => {
+    setBoardThemeState(theme)
+    applyBoardThemeVars(theme)
+    try {
+      localStorage.setItem(THEME_KEY, theme)
     } catch {
       // ignore (private browsing, etc.)
     }
@@ -600,6 +629,8 @@ export default function BoardPage() {
         onRestore={restoreLayout}
         onToggleHelp={() => setHelpOpen((o) => !o)}
         onExport={handleExport}
+        boardTheme={boardTheme}
+        onBoardThemeChange={setBoardTheme}
       />
 
       <div className="flex flex-1 overflow-hidden">

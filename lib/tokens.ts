@@ -51,3 +51,19 @@ export const MODE_CARD = {
 
 export type TemplateType = keyof typeof TEMPLATES
 export type AppearanceMode = 'light' | 'dark'
+
+/** Board surface themes — cosmetic only, per spec §4.5 and Phase 9: swap
+ *  the board's felt/accent colors, template pin/stock colors never change.
+ *  Ported verbatim from prototype/tokens.js's THEMES. Applied by directly
+ *  setting --felt/--felt-2/--brass on the root element (bypassing the
+ *  light/dark mode CSS blocks in styles/tokens.css, same as the prototype's
+ *  own applyTheme did), so a theme choice looks the same regardless of the
+ *  separate light/dark appearance setting. */
+export const BOARD_THEMES = {
+  felt: { label: 'Felt board', felt: '#243029', felt2: '#1C251F', brass: '#C9A227' },
+  cork: { label: 'Corkboard', felt: '#8B6B4A', felt2: '#6E5238', brass: '#BE6A3A' },
+  slate: { label: 'Slate', felt: '#232C36', felt2: '#1A2129', brass: '#6FA8C9' },
+  chalk: { label: 'Chalkboard', felt: '#191919', felt2: '#111111', brass: '#8FBF7F' }
+} as const
+
+export type BoardTheme = keyof typeof BOARD_THEMES

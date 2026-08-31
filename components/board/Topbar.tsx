@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { AppearanceMode } from '@/lib/tokens'
+import { AppearanceMode, BOARD_THEMES, BoardTheme } from '@/lib/tokens'
 
 interface TopbarProps {
   appearance: AppearanceMode
   onAppearanceChange: (mode: AppearanceMode) => void
+  boardTheme: BoardTheme
+  onBoardThemeChange: (theme: BoardTheme) => void
   snapGrid: boolean
   onSnapGridChange: (enabled: boolean) => void
   query: string
@@ -36,6 +38,8 @@ const btnBase = {
 export default function Topbar({
   appearance,
   onAppearanceChange,
+  boardTheme,
+  onBoardThemeChange,
   snapGrid,
   onSnapGridChange,
   query,
@@ -146,6 +150,23 @@ export default function Topbar({
           </button>
         </div>
       </div>
+
+      {/* Board theme — cosmetic surface only; template pin/stock colors are
+          fixed and untouched by this, see lib/tokens.ts BOARD_THEMES */}
+      <select
+        aria-label="Board theme"
+        title="Board theme"
+        value={boardTheme}
+        onChange={(e) => onBoardThemeChange(e.target.value as keyof typeof BOARD_THEMES)}
+        className="flex-none rounded-lg px-2 py-1.5 text-sm"
+        style={{ border: '1px solid var(--chrome-line)', background: 'var(--chrome-2)', color: 'var(--chalk)' }}
+      >
+        {Object.entries(BOARD_THEMES).map(([key, t]) => (
+          <option key={key} value={key}>
+            {t.label}
+          </option>
+        ))}
+      </select>
 
       {/* Snap Grid */}
       <label className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: 'var(--chalk-dim)' }}>

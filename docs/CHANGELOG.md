@@ -60,6 +60,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Restyled the board (`Board`/`NoteCard`/`Rail`/`Topbar`) to the prototype's dark-chrome visual language (sticky filter bar with date-range/tag/sort chips, rail sections for templates/view/open action items, pin badges) instead of the earlier lighter "modern flat" treatment, per explicit user request to match the original prototype rather than the previously chosen direction
 
 ### Added
+- Board theme switching (felt/cork/slate/chalkboard), applied via direct `--felt`/`--felt-2`/`--brass` overrides so it's independent of the separate light/dark appearance setting; template pin/stock colors are unaffected (phase 9)
+
+### Added
 - Version history browsing in the board drawer: a picker listing every `note_versions` row for a note (date + originating template), correctly re-resolving both body and template together per selection, not just swapping body content against the current template (phase 8)
 
 ### Fixed
