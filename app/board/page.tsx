@@ -166,35 +166,39 @@ export default function BoardPage() {
     })
   }, [])
 
+  // Note on the pattern below: persistPosition (and every position-mutating
+  // callback in this file) must never be called *inside* a setNotes updater
+  // function. React can invoke that updater during another component's
+  // render, so a side effect there (a Server Action call, which eventually
+  // touches router-visible cache state via revalidatePath) can fire mid-
+  // render and throw "Cannot update a component while rendering a different
+  // component" - a real crash this project shipped with, not a
+  // hypothetical. Fix: compute the new position from the current `notes`
+  // closure first, call setNotes with a pure mapper, then persist as a
+  // separate statement afterward.
   const handlePositionChange = useCallback(
     (id: string, position: { x: number; y: number }) => {
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n.id !== id) return n
-          const nextPosition = { ...n.position, x: position.x, y: position.y }
-          persistPosition(id, nextPosition)
-          return { ...n, position: nextPosition }
-        })
-      )
+      const current = notes.find((n) => n.id === id)
+      if (!current) return
+      const nextPosition = { ...current.position, x: position.x, y: position.y }
+      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, position: nextPosition } : n)))
+      persistPosition(id, nextPosition)
       if (stacked) setStacked(false)
     },
-    [persistPosition, stacked]
+    [notes, persistPosition, stacked]
   )
 
   const bringToFront = useCallback(
     (id: string) => {
+      const current = notes.find((n) => n.id === id)
+      if (!current) return
       const next = zTop + 1
+      const nextPosition = { ...current.position, z_index: next }
       setZTop(next)
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n.id !== id) return n
-          const nextPosition = { ...n.position, z_index: next }
-          persistPosition(id, nextPosition)
-          return { ...n, position: nextPosition }
-        })
-      )
+      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, position: nextPosition } : n)))
+      persistPosition(id, nextPosition)
     },
-    [zTop, persistPosition]
+    [notes, zTop, persistPosition]
   )
 
   /* ---------- filtering / sorting ---------- */
@@ -329,15 +333,13 @@ export default function BoardPage() {
 
   const restoreLayout = useCallback(() => {
     if (!snapshot) return
-    setNotes((prev) =>
-      prev.map((n) => {
-        const s = snapshot[n.id]
-        if (!s) return n
-        const nextPosition = { ...n.position, x: s.x, y: s.y }
-        persistPosition(n.id, nextPosition)
-        return { ...n, position: nextPosition }
-      })
-    )
+    const updates: Record<string, BoardNote['position']> = {}
+    notes.forEach((n) => {
+      const s = snapshot[n.id]
+      if (s) updates[n.id] = { ...n.position, x: s.x, y: s.y }
+    })
+    setNotes((prev) => prev.map((n) => (updates[n.id] ? { ...n, position: updates[n.id] } : n)))
+    Object.entries(updates).forEach(([id, position]) => persistPosition(id, position))
     setWidths((prev) => {
       const next = { ...prev }
       Object.entries(snapshot).forEach(([id, s]) => {
@@ -348,7 +350,7 @@ export default function BoardPage() {
     setSnapshot(null)
     setStacked(false)
     showToast('Layout restored')
-  }, [snapshot, persistPosition, showToast])
+  }, [snapshot, notes, persistPosition, showToast])
 
   const toggleStack = useCallback(() => {
     if (stacked) {
@@ -360,16 +362,13 @@ export default function BoardPage() {
     const A = SPACE.stackAnchor
     const step = 4
     let z = zTop
-    setNotes((prev) =>
-      prev.map((n) => {
-        const idx = order.findIndex((o) => o.id === n.id)
-        if (idx < 0) return n
-        z += 1
-        const nextPosition = { ...n.position, x: A.x + idx * step, y: A.y + idx * step, z_index: z }
-        persistPosition(n.id, nextPosition)
-        return { ...n, position: nextPosition }
-      })
-    )
+    const updates: Record<string, BoardNote['position']> = {}
+    order.forEach((n, idx) => {
+      z += 1
+      updates[n.id] = { ...n.position, x: A.x + idx * step, y: A.y + idx * step, z_index: z }
+    })
+    setNotes((prev) => prev.map((n) => (updates[n.id] ? { ...n, position: updates[n.id] } : n)))
+    Object.entries(updates).forEach(([id, position]) => persistPosition(id, position))
     setCollapsedIds((prev) => {
       const next = new Set(prev)
       order.forEach((n) => next.delete(n.id))
@@ -388,18 +387,15 @@ export default function BoardPage() {
     const cols = Math.max(1, Math.floor((width - 40) / colW))
     const order = sortNotes(notes.filter((n) => matches(n) && !n.pinned))
     let z = zTop
-    setNotes((prev) =>
-      prev.map((n) => {
-        const idx = order.findIndex((o) => o.id === n.id)
-        if (idx < 0) return n
-        z += 1
-        const x = 20 + (idx % cols) * colW
-        const y = 10 + Math.floor(idx / cols) * SPACE.arrangeRowH
-        const nextPosition = { ...n.position, x, y, z_index: z }
-        persistPosition(n.id, nextPosition)
-        return { ...n, position: nextPosition }
-      })
-    )
+    const updates: Record<string, BoardNote['position']> = {}
+    order.forEach((n, idx) => {
+      z += 1
+      const x = 20 + (idx % cols) * colW
+      const y = 10 + Math.floor(idx / cols) * SPACE.arrangeRowH
+      updates[n.id] = { ...n.position, x, y, z_index: z }
+    })
+    setNotes((prev) => prev.map((n) => (updates[n.id] ? { ...n, position: updates[n.id] } : n)))
+    Object.entries(updates).forEach(([id, position]) => persistPosition(id, position))
     setWidths((prev) => {
       const next = { ...prev }
       order.forEach((n) => {
