@@ -35,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-mode="light"
+      data-mode="dark"
       className={`${bricolageGrotesque.variable} ${ibmPlexMono.variable} ${publicSans.variable}`}
       style={{
         // tokens.css defines --font-display/--font-mono/--font-body as literal
@@ -49,13 +49,16 @@ export default function RootLayout({
     >
       <body>
         <script
-          // Runs before paint to avoid a light->dark flash on the public
-          // marketing/auth pages, which persist appearance to localStorage
-          // (see lib/appearance.ts). The board sets data-mode itself once it
-          // mounts, so this is harmless there too.
+          // Runs before paint to avoid a flash of the wrong mode on the
+          // public marketing/auth pages, which persist appearance to
+          // localStorage (see lib/appearance.ts). Dark is the default (set
+          // above on <html>), so this only needs to de-escalate to light
+          // when that's what the visitor explicitly chose last time. The
+          // board sets data-mode itself once it mounts, so this is
+          // harmless there too.
           dangerouslySetInnerHTML={{
             __html:
-              "try{var m=localStorage.getItem('noteflow-appearance');if(m==='dark')document.documentElement.setAttribute('data-mode','dark');}catch(e){}",
+              "try{var m=localStorage.getItem('noteflow-appearance');if(m==='light')document.documentElement.setAttribute('data-mode','light');}catch(e){}",
           }}
         />
         {children}

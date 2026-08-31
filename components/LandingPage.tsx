@@ -57,7 +57,7 @@ const FEATURES = [
 ]
 
 export default function LandingPage() {
-  const [appearance, setAppearance] = useState<Appearance>('light')
+  const [appearance, setAppearance] = useState<Appearance>('dark')
 
   useEffect(() => {
     setAppearance(getStoredAppearance())

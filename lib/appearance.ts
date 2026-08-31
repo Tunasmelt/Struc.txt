@@ -9,11 +9,11 @@ export type Appearance = 'light' | 'dark'
 const KEY = 'noteflow-appearance'
 
 export function getStoredAppearance(): Appearance {
-  if (typeof window === 'undefined') return 'light'
+  if (typeof window === 'undefined') return 'dark'
   try {
-    return window.localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light'
+    return window.localStorage.getItem(KEY) === 'light' ? 'light' : 'dark'
   } catch {
-    return 'light'
+    return 'dark'
   }
 }
 

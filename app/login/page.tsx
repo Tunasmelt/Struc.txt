@@ -71,7 +71,7 @@ export default function LoginPage() {
 function LoginPageInner() {
   const searchParams = useSearchParams()
   const [screen, setScreen] = useState<Screen>(searchParams.get('mode') === 'signup' ? 'signup' : 'login')
-  const [appearance, setAppearance] = useState<Appearance>('light')
+  const [appearance, setAppearance] = useState<Appearance>('dark')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
