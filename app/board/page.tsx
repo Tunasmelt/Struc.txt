@@ -34,6 +34,9 @@ export default function BoardPage() {
   const [appearance, setAppearanceState] = useState<AppearanceMode>('light')
   const [boardTheme, setBoardThemeState] = useState<BoardTheme>('felt')
   const [snapGrid, setSnapGrid] = useState(false)
+  // The rail is a fixed-width static column on desktop but an overlay
+  // drawer below md: (a 236px column would eat most of a phone screen).
+  const [mobileRailOpen, setMobileRailOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [filterTmpl, setFilterTmpl] = useState<string | null>(null)
   const [filterTag, setFilterTag] = useState<string | null>(null)
@@ -686,18 +689,31 @@ export default function BoardPage() {
         onExport={handleExport}
         boardTheme={boardTheme}
         onBoardThemeChange={setBoardTheme}
+        onToggleRail={() => setMobileRailOpen((o) => !o)}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Backdrop — mobile only, closes the rail drawer on tap-outside */}
+        {mobileRailOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-40"
+            style={{ background: 'rgba(8,7,6,.6)' }}
+            onClick={() => setMobileRailOpen(false)}
+          />
+        )}
         <Rail
           liveNotes={liveNotes}
           archivedCount={archivedNotes.length}
           templates={templates}
           filterTmpl={filterTmpl}
-          onFilterTmplChange={setFilterTmpl}
+          onFilterTmplChange={(id) => {
+            setFilterTmpl(id)
+            setMobileRailOpen(false)
+          }}
           showArchived={showArchived}
           onShowArchivedChange={setShowArchived}
           onToggleActionItem={handleToggleActionItem}
+          className={`${mobileRailOpen ? 'flex' : 'hidden'} md:flex fixed md:static inset-y-0 left-0 z-50 md:z-auto flex-col`}
         />
         <Board
           notes={visibleNotes}

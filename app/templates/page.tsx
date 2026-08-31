@@ -94,11 +94,11 @@ export default function TemplatesPage() {
       style={{ fontFamily: 'var(--font-body)', background: 'var(--chrome)', color: 'var(--chalk)' }}
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="m-0 text-2xl font-bold" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-.02em' }}>
             Templates
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link
               href="/board"
               className="rounded-lg px-3 py-1.5 text-sm font-semibold"
