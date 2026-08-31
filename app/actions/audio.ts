@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 import { transcribeAudio } from '@/lib/ai/transcribe'
 import { restructureNoteAction } from './restructure'
 
@@ -53,7 +52,6 @@ export async function createAudioNote(storagePath: string, liveTranscript: strin
     console.error(`Background transcription failed for note ${data.id}:`, err)
   })
 
-  revalidatePath('/board')
   return data
 }
 

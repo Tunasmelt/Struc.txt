@@ -4,7 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { restructureNoteContent } from '@/lib/ai/restructure'
 import { getTemplate } from '@/app/actions/templates'
 import { enrichNoteAction } from '@/app/actions/enrich'
-import { revalidatePath } from 'next/cache'
+
+// No revalidatePath() here on purpose: this function is routinely called
+// fire-and-forget from createNote/duplicateNote/applyTemplateToNote and
+// keeps running after the originating request has already completed.
+// Calling revalidatePath from that detached context throws "used during
+// render... unsupported" — a real crash this project shipped with. The
+// board is a 'use client' page that re-fetches its own data directly
+// (see loadNotes() in app/board/page.tsx), so it was never load-bearing.
 
 /** Fallback preset used when a note has no template chosen at all, to
  *  preserve Phase 1/2 behavior of always restructuring against Meeting
@@ -61,6 +68,5 @@ export async function restructureNoteAction(noteId: string, rawText: string, tem
     })
   }
 
-  revalidatePath('/')
   return data
 }

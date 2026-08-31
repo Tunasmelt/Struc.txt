@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 import { TemplateField } from '@/lib/prompts/dynamicTemplate'
 
 export interface TemplateRow {
@@ -81,7 +80,6 @@ export async function createTemplate(input: TemplateInput): Promise<TemplateRow>
     throw new Error(`Failed to create template: ${error.message}`)
   }
 
-  revalidatePath('/templates')
   return data as TemplateRow
 }
 
@@ -113,7 +111,6 @@ export async function updateTemplate(id: string, input: Partial<TemplateInput>):
     throw new Error(`Failed to update template: ${error.message}`)
   }
 
-  revalidatePath('/templates')
   return data as TemplateRow
 }
 
@@ -133,8 +130,6 @@ export async function deleteTemplate(id: string): Promise<void> {
     console.error('Supabase delete template error:', error)
     throw new Error(`Failed to delete template: ${error.message}`)
   }
-
-  revalidatePath('/templates')
 }
 
 /** Clones a preset (or any visible template) into a new template owned by the

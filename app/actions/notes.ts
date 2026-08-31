@@ -1,8 +1,17 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 import { restructureNoteAction } from './restructure'
+
+// Note: no revalidatePath() anywhere in this file. Every page that reads
+// this data is a 'use client' component fetching directly via these server
+// actions (see loadNotes() in app/board/page.tsx) rather than relying on
+// Next's router/page cache, so revalidatePath is never load-bearing here —
+// and calling it from a detached background task (restructureNoteAction is
+// fire-and-forget from createNote/duplicateNote) throws "used during
+// render... unsupported" once the originating request has already
+// completed. Real bug this project shipped with; removed rather than
+// worked around.
 
 export async function createNote(rawText: string, templateId?: string | null) {
   const supabase = await createClient()
@@ -43,7 +52,6 @@ export async function createNote(rawText: string, templateId?: string | null) {
     console.error(`Background restructuring failed for note ${data.id}:`, err)
   })
 
-  revalidatePath('/')
   return data
 }
 
@@ -82,12 +90,19 @@ export async function applyTemplateToNote(noteId: string, templateId: string) {
   }
 
   const version = await restructureNoteAction(noteId, note.raw_text, templateId)
-  revalidatePath('/')
   return version
 }
 
 /** Toggles pinned/archived — real DB columns (migration 005) since these
- *  must survive a reload, unlike collapsed/width which stay UI-local. */
+ *  must survive a reload, unlike collapsed/width which stay UI-local.
+ *
+ *  No .select().single() here: the caller doesn't use a returned row, and
+ *  requesting one meant Supabase's PostgREST layer required exactly one row
+ *  to come back or throw PGRST116 ("cannot coerce to a single object") —
+ *  which fired for real whenever a stale in-flight request landed after the
+ *  note had already been deleted (e.g. a rapid pin-then-delete). A plain
+ *  update with no .select() just no-ops on zero matching rows instead of
+ *  crashing the request with a 500. */
 export async function updateNoteFlags(noteId: string, patch: { pinned?: boolean; archived?: boolean }) {
   const supabase = await createClient()
 
@@ -96,21 +111,16 @@ export async function updateNoteFlags(noteId: string, patch: { pinned?: boolean;
     throw new Error('User not authenticated')
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('notes')
     .update(patch)
     .eq('id', noteId)
     .eq('user_id', user.id)
-    .select()
-    .single()
 
   if (error) {
     console.error('Supabase update note flags error:', error)
     throw new Error(`Failed to update note: ${error.message}`)
   }
-
-  revalidatePath('/board')
-  return data
 }
 
 export async function deleteNote(noteId: string) {
@@ -127,8 +137,6 @@ export async function deleteNote(noteId: string) {
     console.error('Supabase delete note error:', error)
     throw new Error(`Failed to delete note: ${error.message}`)
   }
-
-  revalidatePath('/board')
 }
 
 /** Clones a note (title + raw text + template) as a brand-new row with its
@@ -181,7 +189,6 @@ export async function duplicateNote(noteId: string) {
     console.error(`Background restructuring failed for duplicated note ${copy.id}:`, err)
   })
 
-  revalidatePath('/board')
   return copy
 }
 

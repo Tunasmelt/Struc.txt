@@ -1,8 +1,13 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 import { enrichNoteContent } from '@/lib/ai/enrich'
+
+// No revalidatePath() in this file: enrichNoteAction runs detached
+// (fire-and-forget from restructureNoteAction) and calling it from that
+// context after the originating request completed throws "used during
+// render... unsupported". The others don't need it either — the board is
+// a 'use client' page that re-fetches its own data directly.
 
 /** Pass 2. Called fire-and-forget after a note_versions row lands
  *  (see restructureNoteAction) — any failure here is caught and logged,
@@ -54,8 +59,6 @@ export async function enrichNoteAction(noteId: string, structuredBody: Record<st
         console.error(`Enrichment: failed to insert action items for note ${noteId}:`, actionsError)
       }
     }
-
-    revalidatePath('/board')
   } catch (err) {
     console.error(`Enrichment failed for note ${noteId} — pass 1's structured content is unaffected:`, err)
   }
@@ -68,7 +71,6 @@ export async function confirmTag(noteTagId: string) {
     console.error('Failed to confirm tag:', error)
     throw new Error(`Failed to confirm tag: ${error.message}`)
   }
-  revalidatePath('/board')
 }
 
 export async function rejectTag(noteTagId: string) {
@@ -78,7 +80,6 @@ export async function rejectTag(noteTagId: string) {
     console.error('Failed to reject tag:', error)
     throw new Error(`Failed to reject tag: ${error.message}`)
   }
-  revalidatePath('/board')
 }
 
 export async function toggleActionItem(actionItemId: string, done: boolean) {
@@ -91,5 +92,4 @@ export async function toggleActionItem(actionItemId: string, done: boolean) {
     console.error('Failed to update action item:', error)
     throw new Error(`Failed to update action item: ${error.message}`)
   }
-  revalidatePath('/board')
 }
