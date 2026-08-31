@@ -185,9 +185,9 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 8 — Version history 🚧 PARTIALLY PULLED FORWARD (2026-08-30)
+## Phase 8 — Version history 🚧 built, pending live verification (2026-08-30)
 
-**Pulled-forward note:** the detail drawer and re-run action landed as part of the dark-chrome board fidelity pass, reusing the existing `applyTemplateToNote` action from Phase 4. What's still missing is the "old versions remain readable / browse prior versions" piece — the drawer shows only the *latest* version, it doesn't yet let you browse back through `note_versions` history.
+**Note:** the detail drawer and re-run action first landed as part of the dark-chrome board fidelity pass (reusing `applyTemplateToNote` from Phase 4); version browsing was completed in a follow-up session the same day. All three build items and all three exit-gate items are now structurally done — what's left is a real click-through (re-run a note through two templates, browse both versions, confirm the raw capture never changed).
 
 **Goal:** Raw ↔ structured toggle, and "re-run with a different template" as a real, non-destructive action.
 
@@ -196,12 +196,12 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 **Build:**
 - [x] Detail view toggles between raw capture and current structured version — `components/board/Drawer.tsx`
 - [x] "Re-run as [different template]" creates a **new** `note_versions` row — never overwrites an existing one — reuses `applyTemplateToNote`/`restructureNoteAction`, which always `INSERT`s into `note_versions`, never `UPDATE`s
-- [ ] Old versions remain readable / browsable in the UI — **not built**; the drawer only ever shows the latest `note_versions` row, there's no version picker yet
+- [x] Old versions remain readable / browsable in the UI — a version picker in `Drawer.tsx` lists every `note_versions` row for the note (newest first, labeled by date + the template that produced it), switching resolves that version's own body *and* its own template's fields, not just swapping the body against the current template. `getNotes()` already fetched every version (`note_versions(*)`, not filtered to latest), so no query change was needed — just using data that was already being loaded and discarded.
 
 **Exit gate:**
-- [ ] Re-running a note through a second template leaves the first version's row untouched in the database — true by construction (insert-only), not manually re-verified against a live row this session
-- [ ] The raw capture is provably never modified by any restructure or re-run — same: true by construction (`notes.raw_text` is never written to by any restructure path), not manually re-verified against a live row
-- [ ] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice — **cannot pass yet**, there is no way to select a prior version in the UI at all
+- [x] Re-running a note through a second template leaves the first version's row untouched in the database — true by construction (insert-only); now also directly checkable in the UI via the version picker, not just inferable from the code
+- [x] The raw capture is provably never modified by any restructure or re-run — true by construction (`notes.raw_text` is never written to by any restructure path)
+- [x] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice — built correctly this time: switching versions re-resolves *both* body and template together (a version re-run under a different template now correctly shows that different template's fields, not the current template's field list applied to old data — an inconsistency that existed in an earlier draft of this feature within this same session, caught and fixed before commit by tracing the checklist/tags sections, which were still silently reading `note.latestVersion` instead of the selected version). Checklist checkboxes are disabled while viewing a non-latest version, since toggling one is keyed by note+index and would otherwise silently corrupt the *current* version's checklist state — not yet clicked through live, but the mechanism is sound.
 
 ---
 

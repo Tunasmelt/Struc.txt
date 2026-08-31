@@ -60,6 +60,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Restyled the board (`Board`/`NoteCard`/`Rail`/`Topbar`) to the prototype's dark-chrome visual language (sticky filter bar with date-range/tag/sort chips, rail sections for templates/view/open action items, pin badges) instead of the earlier lighter "modern flat" treatment, per explicit user request to match the original prototype rather than the previously chosen direction
 
 ### Added
+- Version history browsing in the board drawer: a picker listing every `note_versions` row for a note (date + originating template), correctly re-resolving both body and template together per selection, not just swapping body content against the current template (phase 8)
+
+### Fixed
+- Drawer's template-structural "Tags"/"Action items" sections were still reading `note.latestVersion` even while an older version was selected in the new version picker — caught before commit, fixed to read from the already-version-scoped body/template instead (phase 8)
+
+### Added
 - Enrichment pass (pass 2): `lib/prompts/enrichment.ts` + `lib/ai/enrich.ts` extract suggested tags and action items from a note's *structured* body via a genuinely separate Gemini/Groq call from restructuring; `app/actions/enrich.ts` upserts real `tags`/`note_tags`/`action_items` rows (using tables/RLS that have existed since phase 0/1), with a `confirmTag`/`rejectTag`/`toggleActionItem` API. Fires fire-and-forget after restructuring succeeds, wrapped so a failure can never touch the note or its already-saved structured content (phase 7)
 - Suggested-vs-confirmed tag chips (dashed + ✓/× vs. solid pill) and a real, DB-backed, cross-note "Open action items" list in the rail — replacing the old template-checklist-derived list, which had also always rendered every checkbox unchecked regardless of state (phase 7)
 - Audio capture: a "Record" tab in `CaptureModal.tsx` using `MediaRecorder`, a feature-detected live transcript via the Web Speech API, and a real Web-Audio-driven level meter; recordings upload to a new private Supabase Storage bucket (`supabase/migrations/007_audio_storage_bucket.sql`, RLS-scoped per user); an async Groq Whisper pass (`lib/ai/transcribe.ts`) cleans up the transcript and then runs the unchanged phase 2 restructuring pipeline against it (phase 6)

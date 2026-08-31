@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BoardNote, ResolvedTemplate, checklistFor, tagsFor, suggestedNoteTags, openActionItemRows } from './types'
+import { BoardNote, ChecklistItem, ResolvedTemplate, confirmedTagNames, suggestedNoteTags, openActionItemRows } from './types'
 import { applyTemplateToNote } from '@/app/actions/notes'
 import { getAudioSignedUrl } from '@/app/actions/audio'
 
@@ -71,10 +71,21 @@ export default function Drawer({
   const [rerunBusy, setRerunBusy] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioLoading, setAudioLoading] = useState(false)
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
 
   useEffect(() => {
     setAudioUrl(null)
+    setSelectedVersionId(null)
   }, [note?.id])
+
+  // Newest first. `note.note_versions` carries every version (getNotes()
+  // fetches note_versions(*), not just the latest), so this is real
+  // browsable history, not a snapshot.
+  const versions = [...(note?.note_versions || [])].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  const selectedVersion = selectedVersionId ? versions.find((v) => v.id === selectedVersionId) ?? null : note?.latestVersion ?? null
+  const isLatestVersion = !selectedVersion || selectedVersion.id === note?.latestVersion?.id
+  const templatesById = Object.fromEntries(templates.map((t) => [t.id, t]))
+  const versionTmpl = selectedVersion?.template_id ? templatesById[selectedVersion.template_id] ?? null : null
 
   const handlePlayRecording = async () => {
     if (!note || audioLoading) return
@@ -87,10 +98,28 @@ export default function Drawer({
     }
   }
 
-  const tmpl = note?.tmpl
-  const body = note?.latestVersion?.body || {}
-  const actions = note ? checklistFor(note) : []
-  const tags = note ? tagsFor(note) : []
+  // Falls back to the note's current template when browsing a version whose
+  // own template row can't be resolved (shouldn't happen post-Phase-4, but
+  // safer than a blank pane) — the body/fields below always come from
+  // `selectedVersion`, so an older version's actual saved content is never
+  // mixed with the current template's field list.
+  const tmpl = versionTmpl ?? note?.tmpl
+  const body = selectedVersion?.body || {}
+
+  // Template-structural checklist/tags fields, read from *this* version's
+  // body — not note.latestVersion — so browsing an older version shows that
+  // version's own content throughout, not a mix of old fields + current tags.
+  const checklistField = tmpl?.fields.find((f) => f.type === 'checklist')
+  const actions: ChecklistItem[] = checklistField && Array.isArray(body[checklistField.key])
+    ? (body[checklistField.key] as ChecklistItem[])
+    : []
+  const tagsField = tmpl?.fields.find((f) => f.type === 'tags')
+  const fieldTags: string[] = tagsField && Array.isArray(body[tagsField.key])
+    ? (body[tagsField.key] as unknown[]).map(String)
+    : []
+  // Confirmed real tags (Phase 7) aren't version-scoped — they describe the
+  // note as a whole — so they're shown regardless of which version is open.
+  const tags = Array.from(new Set([...fieldTags, ...(note ? confirmedTagNames(note) : [])]))
   const suggested = note ? suggestedNoteTags(note) : []
   const enrichedActions = note ? openActionItemRows(note) : []
 
@@ -185,6 +214,35 @@ export default function Drawer({
               Raw capture
             </button>
           </div>
+
+          {!showRaw && versions.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 18px 0' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                Version
+              </span>
+              <select
+                value={selectedVersion?.id || ''}
+                onChange={(e) => setSelectedVersionId(e.target.value === note.latestVersion?.id ? null : e.target.value)}
+                style={{ background: 'var(--chrome)', border: '1px solid var(--chrome-line)', padding: '5px 8px', borderRadius: 7, color: 'var(--chalk)', fontSize: 12.5 }}
+              >
+                {versions.map((v, i) => {
+                  const vTmpl = v.template_id ? templatesById[v.template_id] : null
+                  const label = `${new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} — ${vTmpl?.name || 'unknown template'}`
+                  return (
+                    <option key={v.id} value={v.id}>
+                      {label}
+                      {i === 0 ? ' (current)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {!isLatestVersion && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--brass-text)', letterSpacing: '.04em' }}>
+                  viewing an earlier version — re-run below still targets the current one
+                </span>
+              )}
+            </div>
+          )}
 
           <div style={{ padding: '16px 18px 30px', overflowY: 'auto', flex: 1 }}>
             {showRaw ? (
@@ -321,6 +379,8 @@ export default function Drawer({
                           <input
                             type="checkbox"
                             checked={done}
+                            disabled={!isLatestVersion}
+                            title={isLatestVersion ? undefined : 'Switch to the current version to check items off'}
                             onChange={() => onToggleChecklistItem(note.id, i)}
                             style={{ accentColor: 'var(--brass)', marginTop: 3 }}
                           />
