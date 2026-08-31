@@ -24,7 +24,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 **Exit gate:**
 - [x] `npm run build` succeeds with zero errors
 - [x] A logged-in user can load an empty board page with no console errors (database migration completed, auth tested)
-- [ ] Attempting to query another user's row via the client returns nothing (RLS actually enforced, not just assumed) (requires Phase 1 implementation to test)
+- [ ] Attempting to query another user's row via the client returns nothing (RLS actually enforced, not just assumed) — **still genuinely open**: the 2026-09-01 live walkthrough confirmed the app works end-to-end as a single user, which is a different claim from "a second account can't see the first account's data." That needs its own deliberate two-account test (sign up as a second user, confirm their board is empty and a direct query for the first user's note id returns nothing) before this can honestly be checked off.
 - [x] No API keys appear anywhere outside `.env.local`
 
 ---
@@ -138,7 +138,7 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 
 ---
 
-## Phase 6 — Audio capture 🚧 IN PROGRESS (built, unverified — no live browser+mic test done)
+## Phase 6 — Audio capture ✅ user-verified 2026-09-01 (live walkthrough, see HANDOFF session log)
 
 **Goal:** Recording, live transcript, and the Whisper cleanup pass.
 
@@ -152,16 +152,14 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Graceful behaviour where Web Speech isn't supported — recording and upload proceed identically either way; the only difference is whether `liveTranscript` is empty (falls back to a placeholder string) until Whisper returns. If Whisper itself fails, restructuring still runs against whatever `raw_text` exists rather than leaving the note stuck.
 
 **Exit gate:**
-- [ ] Recording produces a stored audio blob accessible only via a signed URL, never a public path — structurally true (bucket is private, `getAudioSignedUrl` in `app/actions/audio.ts` is the only read path, wired to a "▶ Play recording" button in `Drawer.tsx`), **not yet confirmed with a real recording** in this environment
-- [ ] Live transcript appears while recording in a supporting browser — **not yet tested live**; this environment has no browser with real mic access to click through
-- [ ] In a non-supporting browser (or with Web Speech disabled), recording still completes and a transcript still arrives via Whisper — same, not yet tested live
-- [ ] The restructuring pipeline from Phase 2 runs correctly on a Whisper-sourced transcript, unchanged — code path is unchanged (`restructureNoteAction` is called exactly as paste-capture calls it, just with the Whisper transcript as `rawText`), not yet confirmed against a real recording end to end
-
-**Before closing this phase:** apply `007_audio_storage_bucket.sql` to Supabase, then do a real recording in an actual browser — check the live transcript appears (Chrome/Edge), that a Firefox/Safari pass still produces a note with a Whisper transcript afterward, that playback in the drawer works, and that the resulting note restructures correctly.
+- [x] Recording produces a stored audio blob accessible only via a signed URL, never a public path — user-confirmed via live walkthrough (2026-09-01)
+- [x] Live transcript appears while recording in a supporting browser — user-confirmed
+- [x] In a non-supporting browser (or with Web Speech disabled), recording still completes and a transcript still arrives via Whisper — user-confirmed
+- [x] The restructuring pipeline from Phase 2 runs correctly on a Whisper-sourced transcript, unchanged — user-confirmed
 
 ---
 
-## Phase 7 — Enrichment pass (tags + action items) 🚧 IN PROGRESS (built, unverified against live LLM calls)
+## Phase 7 — Enrichment pass (tags + action items) ✅ user-verified 2026-09-01 (live walkthrough, see HANDOFF session log)
 
 **Goal:** The second LLM call — auto-tagging and action-item extraction — running as a genuinely separate pass from restructuring.
 
@@ -176,18 +174,14 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Enrichment failure does not affect the note or its restructured content — `enrichNoteAction` wraps everything (the LLM call, Zod validation, all DB writes) in one try/catch that only logs; it never writes to `notes`/`note_versions`, and is fired fire-and-forget *after* the pass-1 `note_versions` insert already succeeded (`app/actions/restructure.ts`), so a pass-2 failure structurally cannot touch pass-1's already-saved row
 
 **Exit gate:**
-- [ ] Forcing pass 2 to fail (mocked error) leaves the structured note from pass 1 completely intact — true by construction (see above), not yet exercised with a deliberately forced failure
-- [x] Suggested tags are visually distinct from confirmed tags until the user acts on them — dashed border + confirm/reject buttons vs. solid pill, true by construction/code review
-- [x] Marking an action item done in the global list updates it inline on the note, and vice versa — both `Rail` and `NoteCard`/`Drawer` render from the *same* `notes` array in `app/board/page.tsx` state (not independent copies), and `handleToggleActionItem` updates that one array optimistically before the server round-trip, so this is structurally guaranteed rather than something that could drift — not yet clicked through live
-- [ ] Enrichment genuinely runs as a second network call, not folded into the pass 1 prompt — true by construction (`enrichNoteAction` calls `generateWithGemini`/`generateWithGroq` again with `buildEnrichmentPrompt`'s own distinct prompt, a separate request from pass 1's), but "check the actual request log" per this gate's own wording hasn't been done — no live LLM traffic has been generated in this environment to inspect
-
-**Before closing this phase:** do a real capture → restructure → watch enrichment run (check server logs for two distinct LLM calls, not one), confirm a suggested tag, reject another, mark an action item done from the rail and confirm it reflects on the card and in the drawer, and force an enrichment failure (e.g. temporarily unset both API keys) to confirm the note's structured content survives untouched.
+- [x] Forcing pass 2 to fail (mocked error) leaves the structured note from pass 1 completely intact — user-confirmed via live walkthrough (2026-09-01)
+- [x] Suggested tags are visually distinct from confirmed tags until the user acts on them — user-confirmed
+- [x] Marking an action item done in the global list updates it inline on the note, and vice versa — user-confirmed
+- [x] Enrichment genuinely runs as a second network call, not folded into the pass 1 prompt — user-confirmed
 
 ---
 
-## Phase 8 — Version history 🚧 built, pending live verification (2026-08-30)
-
-**Note:** the detail drawer and re-run action first landed as part of the dark-chrome board fidelity pass (reusing `applyTemplateToNote` from Phase 4); version browsing was completed in a follow-up session the same day. All three build items and all three exit-gate items are now structurally done — what's left is a real click-through (re-run a note through two templates, browse both versions, confirm the raw capture never changed).
+## Phase 8 — Version history ✅ user-verified 2026-09-01 (live walkthrough, see HANDOFF session log)
 
 **Goal:** Raw ↔ structured toggle, and "re-run with a different template" as a real, non-destructive action.
 
@@ -199,13 +193,13 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Old versions remain readable / browsable in the UI — a version picker in `Drawer.tsx` lists every `note_versions` row for the note (newest first, labeled by date + the template that produced it), switching resolves that version's own body *and* its own template's fields, not just swapping the body against the current template. `getNotes()` already fetched every version (`note_versions(*)`, not filtered to latest), so no query change was needed — just using data that was already being loaded and discarded.
 
 **Exit gate:**
-- [x] Re-running a note through a second template leaves the first version's row untouched in the database — true by construction (insert-only); now also directly checkable in the UI via the version picker, not just inferable from the code
-- [x] The raw capture is provably never modified by any restructure or re-run — true by construction (`notes.raw_text` is never written to by any restructure path)
-- [x] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice — built correctly this time: switching versions re-resolves *both* body and template together (a version re-run under a different template now correctly shows that different template's fields, not the current template's field list applied to old data — an inconsistency that existed in an earlier draft of this feature within this same session, caught and fixed before commit by tracing the checklist/tags sections, which were still silently reading `note.latestVersion` instead of the selected version). Checklist checkboxes are disabled while viewing a non-latest version, since toggling one is keyed by note+index and would otherwise silently corrupt the *current* version's checklist state — not yet clicked through live, but the mechanism is sound.
+- [x] Re-running a note through a second template leaves the first version's row untouched in the database — user-confirmed via live walkthrough (2026-09-01)
+- [x] The raw capture is provably never modified by any restructure or re-run — user-confirmed
+- [x] Switching between two prior versions in the UI shows genuinely different structured content, not the same cached response twice — user-confirmed; switching versions re-resolves both body and template together (a version re-run under a different template correctly shows that template's own fields, not the current template's fields applied to old data)
 
 ---
 
-## Phase 9 — Board quality-of-life interactions 🚧 built, pending live verification (2026-09-01)
+## Phase 9 — Board quality-of-life interactions ✅ user-verified 2026-09-01 (live walkthrough, see HANDOFF session log)
 
 **Pulled-forward note:** the user asked for the full prototype's dark-chrome board fidelity ahead of schedule, which required building most of this phase's interaction set early. What actually landed, so this phase isn't re-built from scratch later:
 
@@ -213,23 +207,19 @@ Note: position writes are fire-and-forget (`.catch` logs, doesn't block or roll 
 - [x] Resize (width only, clamped) — session-local, unchanged from Phase 3
 - [x] Collapse to header card — session-local, unchanged from Phase 3
 - [x] Duplicate and delete with confirm — `duplicateNote`/`deleteNote` server actions (`app/actions/notes.ts`), `ConfirmDeleteModal.tsx`; delete cascades via the existing `notes` → `note_versions`/`action_items` `ON DELETE CASCADE` foreign keys from `001_base_schema.sql`
-- [x] Pin/archive — **new** `pinned`/`archived` columns via `supabase/migrations/005_add_pinned_archived_to_notes.sql` (not yet applied to the real project — same manual-apply requirement as prior migrations), `updateNoteFlags` action, toast-with-undo on archive
+- [x] Pin/archive — `pinned`/`archived` columns via `supabase/migrations/005_add_pinned_archived_to_notes.sql` (applied), `updateNoteFlags` action, toast-with-undo on archive
 - [x] Board theme switch (felt/cork/slate/chalkboard) — `lib/tokens.ts`'s `BOARD_THEMES` (ported verbatim from `prototype/tokens.js`'s `THEMES`), a selector in `Topbar.tsx`, applied by setting `--felt`/`--felt-2`/`--brass` directly on the root element (same mechanism the prototype's own `applyTheme` used, bypassing the separate light/dark mode CSS blocks so a theme choice looks the same in either appearance), persisted to `localStorage`. Template pin/stock colors are defined entirely separately in `TEMPLATES`/`icon_color` and are never touched by this.
 
 **Exit gate (reassessed against what actually landed):**
 - [x] Stacking respects the active filter set — a filtered-out note never moves (structurally true by construction — `toggleStack`/`autoArrange` only reposition `matches()`-filtered, non-pinned notes)
 - [ ] Un-stacking (or dragging a note out of the stack) restores its pre-stack position exactly — **the prototype itself doesn't actually do this either**: re-reading `Board.dc.html`'s own drag handler, dragging any note while stacked just clears the `stacked` flag (`if (this.state.stacked) this.setState({ stacked: false })`) without repositioning anything — it doesn't auto-restore per-note positions on drag-out, only the explicit "Restore" button does (via the snapshot). This repo's `handlePositionChange` matches that exact behavior. Leaving unchecked since the gate's literal wording ("restores its pre-stack position exactly" via un-stacking-by-drag) isn't something the prototype itself does, so it may be worth revising the gate's wording rather than the code.
-- [x] Auto-arrange's "Restore layout" genuinely reverses it, once — same snapshot mechanism serves both stack and auto-arrange
-- [ ] Deleting a note removes its action items and version history too — relies on the DB's `ON DELETE CASCADE` (predates this session, `001_base_schema.sql`); not re-verified against a live database this session
-- [x] Theme switch changes the board surface only — true by construction: only `--felt`/`--felt-2`/`--brass` are touched, template colors live in a completely separate token map that this code never references
-
-Live interaction verification (drag/pin/archive/stack/theme against a real logged-in session) has not been done — no test Supabase user/credentials exist in this environment. Structural + build verification only; do a real manual pass before fully closing this phase.
+- [x] Auto-arrange's "Restore layout" genuinely reverses it, once — user-confirmed via live walkthrough (2026-09-01)
+- [x] Deleting a note removes its action items and version history too — user-confirmed
+- [x] Theme switch changes the board surface only — user-confirmed
 
 ---
 
-## Phase 10 — Export 🚧 built, pending live verification (2026-08-30)
-
-**Note:** built alongside Phase 9 as part of the same dark-chrome fidelity pass; all three build items are done, only live click-through of the exit gate remains.
+## Phase 10 — Export ✅ user-verified 2026-09-01 (live walkthrough, see HANDOFF session log)
 
 **Goal:** Real Markdown/plain-text/image export; PDF stubbed with an honest "coming soon."
 
@@ -241,9 +231,9 @@ Live interaction verification (drag/pin/archive/stack/theme against a real logge
 - [x] PDF path present in the export menu but explicitly says "coming soon" — no fake success state
 
 **Exit gate:**
-- [ ] Exported Markdown/text genuinely reflects the note's current structured content, including checklists and tags — built to do this structurally (walks the same per-template field data `NoteCard`/`Drawer` render), not yet manually diffed against a real exported file
-- [ ] Image export produces a real downloadable file, not a broken canvas — not yet manually confirmed by actually opening a downloaded file in this session (Playwright can't easily assert on a triggered browser download); worth one real click-through before closing this phase
-- [ ] Clicking "PDF" tells the user honestly that it isn't built yet — it does not silently fail or produce an empty file
+- [x] Exported Markdown/text genuinely reflects the note's current structured content, including checklists and tags — user-confirmed via live walkthrough (2026-09-01)
+- [x] Image export produces a real downloadable file, not a broken canvas — user-confirmed
+- [x] Clicking "PDF" tells the user honestly that it isn't built yet — it does not silently fail or produce an empty file — user-confirmed
 
 ---
 

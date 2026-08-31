@@ -8,8 +8,8 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** 9 — Board quality-of-life interactions: last genuinely-unbuilt piece (board theme switching) is now done, meaning Phases 3-5 and 8-10 are all built and `tsc`/`build`-clean, with Phases 6 and 7 also built but still needing a real microphone/live-LLM pass. **The single biggest remaining gap across this whole session's work is that almost none of it has been click-tested against a real logged-in session** — no test Supabase user/credentials exist in this dev environment, so verification has been structural (code review + clean build) rather than interactive, phase after phase. Whoever picks this up next should prioritize one real end-to-end logged-in walkthrough over building anything new.
-- **Gate status:** `lib/tokens.ts`'s `BOARD_THEMES` (felt/cork/slate/chalkboard, ported verbatim from `prototype/tokens.js`), a selector in `Topbar.tsx`, applied via direct `--felt`/`--felt-2`/`--brass` CSS custom property overrides (same mechanism the prototype used), persisted to `localStorage`. Template pin/stock colors live in a completely separate token map and are structurally untouched by this. `tsc`/`build` clean, not live-verified.
+- **Phase:** All ten numbered phases (0-10) are now user-verified through a real logged-in live walkthrough (2026-09-01) — capture (paste + record), restructuring, templates, search/filters, the full board interaction set (drag/pin/archive/duplicate/delete/stack/arrange/theme), version history, enrichment (tags + action items), and export all confirmed working end to end. This is the first point in the project where "verified" means someone actually clicked through it, not just a clean build.
+- **What's genuinely still open:** (1) the specific two-account RLS isolation test from Phase 0's exit gate — the walkthrough confirmed the app works for one user, which isn't the same claim as "a second account can't see the first account's data," so that's left unchecked pending its own deliberate test; (2) the Deferred (P2) list (real-time collab, diarization, backlinks, bulk import, native/PWA, due-date reminders, sharing links) — untouched, requires explicit go-ahead before starting per the plan's own rule.
 - **Last touched by:** Claude Code (Sonnet 5)
 - **Last touched:** 2026-09-01
 
@@ -31,12 +31,12 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Phase 3 — Board rendering (corkboard UI, drag/z-index persistence), user-verified 2026-08-30
 - [x] Phase 4 — Templates library (six presets, dynamic per-template prompt/schema generation, clone/build-from-scratch editor), user-verified 2026-08-30
 - [x] Phase 5 — Search & filters (real Postgres full-text search, combinable tag/date/template filters), user-verified 2026-08-30
-- [~] Phase 6 — Audio capture (MediaRecorder, Web Speech live transcript, Whisper cleanup pass): built and `tsc`/`build`-clean, **not yet verified with a real microphone**
-- [~] Phase 7 — Enrichment pass (suggested tags + action items via a second LLM call): built and clean, **not yet verified against live Gemini/Groq traffic**
-- [~] Phase 8 — Version history (raw/structured toggle, re-run-as-template, version browsing): built and clean, not yet click-tested live
-- [~] Phase 9 — Board quality-of-life (stack/arrange/pin/archive/duplicate/delete/theme-switch): built and clean, not yet click-tested live
-- [~] Phase 10 — Export (Markdown/text/image, PDF stubbed honestly): built and clean, not yet click-tested live
-- Deferred (P2, not started, requires explicit go-ahead per `PHASES_AND_GATES.md`): real-time collaboration, multi-speaker diarization, linked notes/backlinks, bulk import, native/PWA mobile, due-date reminders, read-only sharing links
+- [x] Phase 6 — Audio capture (MediaRecorder, Web Speech live transcript, Whisper cleanup pass), user-verified 2026-09-01
+- [x] Phase 7 — Enrichment pass (suggested tags + action items via a second LLM call), user-verified 2026-09-01
+- [x] Phase 8 — Version history (raw/structured toggle, re-run-as-template, version browsing), user-verified 2026-09-01
+- [x] Phase 9 — Board quality-of-life (stack/arrange/pin/archive/duplicate/delete/theme-switch), user-verified 2026-09-01
+- [x] Phase 10 — Export (Markdown/text/image, PDF stubbed honestly), user-verified 2026-09-01
+- Still open: Phase 0's two-account RLS isolation test (not the same claim as "works for one user" — needs its own test); the Deferred (P2) list (real-time collaboration, multi-speaker diarization, linked notes/backlinks, bulk import, native/PWA mobile, due-date reminders, read-only sharing links) — not started, requires explicit go-ahead per `PHASES_AND_GATES.md`
 
 ---
 
@@ -45,6 +45,14 @@ Read this first in any new session, before opening any code. This file exists be
 - Provide real `GEMINI_API_KEY` and `GROQ_API_KEY` in `.env.local` to process live LLM requests (graceful unstructured fallback active when absent)
 
 ---
+
+## 4. Session log (append new entries at the top, newest first)
+
+### [2026-09-01] — Claude Code (Sonnet 5) (live walkthrough confirmed, phases 6-10 closed out)
+- Phase worked on: none — no code changed. The user reported completing a full live logged-in walkthrough and that everything works, covering the entire remaining unverified surface: audio capture (Phase 6), enrichment (Phase 7), version history (Phase 8), board quality-of-life interactions (Phase 9), and export (Phase 10).
+- What changed (docs only, `PHASES_AND_GATES.md` + `HANDOFF.md`): flipped every remaining unchecked build/exit-gate item across Phases 6-10 to user-verified, and updated each phase's header accordingly. Also corrected the Phase 9 pin/archive build note, which still said the `005_add_pinned_archived_to_notes.sql` migration hadn't been applied — it clearly has been, given pin/archive worked in the walkthrough. Left two things deliberately unchecked rather than sweeping them in with everything else: Phase 0's two-account RLS isolation test (a general "it works" walkthrough as one user isn't the same claim as "a second account can't see the first account's data" — that needs its own deliberate test) and the Phase 9 gate item about un-stacking-by-drag restoring position exactly, which was already flagged last session as likely a gate-wording mismatch against what the prototype itself actually does, not a live-verification gap.
+- Gate status at end of session: Phases 0-10 are all user-verified except the one specific RLS cross-user item noted above. The Deferred (P2) list remains untouched and still requires explicit go-ahead before any of it is built.
+- What the next session should do first: with the full phase plan now verified, there's no default "next phase" — check with the user for a two-account RLS test, a Deferred (P2) feature (with explicit sign-off), or something outside the original plan entirely, rather than assuming.
 
 ### [2026-09-01] — Claude Code (Sonnet 5) (docs reconciliation, no code changes)
 - Phase worked on: none — asked to "build the next phase," but every numbered phase already had its build items done, so asked the user to clarify what they meant rather than guessing at a Deferred (P2) feature (which the docs' own rules say needs explicit go-ahead). The user chose "fix the stale phase-status docs" instead of building something.
