@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { SPACE, MODE_CARD, DEFAULT_TEMPLATE_PIN } from '@/lib/tokens'
 import { BoardNote, checklistFor, tagsFor, suggestedNoteTags } from './types'
 import { TemplateField } from '@/lib/prompts/dynamicTemplate'
+import { noteToText } from '@/lib/board/exportNote'
 
 interface NoteCardProps {
   note: BoardNote
@@ -129,6 +130,7 @@ export default function NoteCard({
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [position, setPosition] = useState({ x: note.position.x, y: note.position.y })
 
   const cardRef = useRef<HTMLElement>(null)
@@ -152,6 +154,17 @@ export default function NoteCard({
   const openActions = actions.filter((i) => !i.done).length
   const tags = tagsFor(note)
   const suggested = suggestedNoteTags(note)
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(noteToText(note))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (err) {
+      console.error('Failed to copy note text:', err)
+    }
+  }
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('[data-act]')) return
@@ -278,6 +291,25 @@ export default function NoteCard({
               PIN
             </span>
           )}
+          <button
+            data-act="copy"
+            onClick={handleCopy}
+            aria-label={copied ? 'Copied' : 'Copy note text'}
+            title={copied ? 'Copied' : 'Copy note text'}
+            className="grid place-items-center rounded"
+            style={{ width: 18, height: 18, color: copied ? 'var(--brass-text)' : 'var(--ink-2)', opacity: 0.75 }}
+          >
+            {copied ? (
+              <svg width="11" height="11" viewBox="0 0 12 12">
+                <path d="M2 6.5L4.7 9L10 3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg width="11" height="11" viewBox="0 0 12 12">
+                <rect x="4" y="4" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                <path d="M2.5 8V2.5C2.5 1.94772 2.94772 1.5 3.5 1.5H8" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+              </svg>
+            )}
+          </button>
           <button
             data-act="collapse"
             onClick={(e) => {

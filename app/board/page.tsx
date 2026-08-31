@@ -104,13 +104,22 @@ export default function BoardPage() {
   }
 
   /* ---------- board theme (Phase 9 — cosmetic surface only, template
-   * pin/stock colors are untouched by this) ---------- */
+   * pin/stock colors are untouched by this) ----------
+   * Only --felt/--felt-2 (the board canvas itself) are set here, as inline
+   * styles on the root element. --brass is deliberately NOT touched:
+   * setting it here used to permanently override the [data-mode="light"]/
+   * [data-mode="dark"] CSS rules for that variable (an inline style always
+   * wins over an attribute-selector rule), which is exactly why the
+   * topbar/rail's brass-accented buttons and active states stopped
+   * reacting to the light/dark toggle once a theme had been applied - a
+   * real bug, not a hypothetical, reported directly by the user. --brass
+   * stays governed entirely by the appearance mode, same as every other
+   * mode-aware token. */
   const applyBoardThemeVars = (theme: BoardTheme) => {
     const t = BOARD_THEMES[theme]
     const root = document.documentElement
     root.style.setProperty('--felt', t.felt)
     root.style.setProperty('--felt-2', t.felt2)
-    root.style.setProperty('--brass', t.brass)
     root.setAttribute('data-theme', theme)
   }
 

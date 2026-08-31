@@ -53,17 +53,22 @@ export type TemplateType = keyof typeof TEMPLATES
 export type AppearanceMode = 'light' | 'dark'
 
 /** Board surface themes — cosmetic only, per spec §4.5 and Phase 9: swap
- *  the board's felt/accent colors, template pin/stock colors never change.
- *  Ported verbatim from prototype/tokens.js's THEMES. Applied by directly
- *  setting --felt/--felt-2/--brass on the root element (bypassing the
- *  light/dark mode CSS blocks in styles/tokens.css, same as the prototype's
- *  own applyTheme did), so a theme choice looks the same regardless of the
- *  separate light/dark appearance setting. */
+ *  the board canvas's felt colors, nothing else. Ported from
+ *  prototype/tokens.js's THEMES, minus each theme's `brass` value — the
+ *  prototype applied that too, but this app layered a separate light/dark
+ *  appearance mode on top that also governs --brass (see
+ *  styles/tokens.css's [data-mode] blocks), and an inline style always
+ *  beats an attribute-selector rule. Setting --brass per-theme silently
+ *  locked it to one fixed value regardless of light/dark, which is why the
+ *  topbar/rail's brass-accented buttons stopped responding to the
+ *  appearance toggle once a theme was applied. Template pin/stock colors
+ *  are a separate concern entirely (see TEMPLATES above) and were never
+ *  touched by this either way. */
 export const BOARD_THEMES = {
-  felt: { label: 'Felt board', felt: '#243029', felt2: '#1C251F', brass: '#C9A227' },
-  cork: { label: 'Corkboard', felt: '#8B6B4A', felt2: '#6E5238', brass: '#BE6A3A' },
-  slate: { label: 'Slate', felt: '#232C36', felt2: '#1A2129', brass: '#6FA8C9' },
-  chalk: { label: 'Chalkboard', felt: '#191919', felt2: '#111111', brass: '#8FBF7F' }
+  felt: { label: 'Felt board', felt: '#243029', felt2: '#1C251F' },
+  cork: { label: 'Corkboard', felt: '#8B6B4A', felt2: '#6E5238' },
+  slate: { label: 'Slate', felt: '#232C36', felt2: '#1A2129' },
+  chalk: { label: 'Chalkboard', felt: '#191919', felt2: '#111111' }
 } as const
 
 export type BoardTheme = keyof typeof BOARD_THEMES

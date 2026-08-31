@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BoardNote, ChecklistItem, ResolvedTemplate, confirmedTagNames, suggestedNoteTags, openActionItemRows } from './types'
 import { applyTemplateToNote } from '@/app/actions/notes'
 import { getAudioSignedUrl } from '@/app/actions/audio'
+import { noteToText } from '@/lib/board/exportNote'
 
 interface DrawerProps {
   note: BoardNote | null
@@ -72,11 +73,24 @@ export default function Drawer({
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioLoading, setAudioLoading] = useState(false)
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setAudioUrl(null)
     setSelectedVersionId(null)
+    setCopied(false)
   }, [note?.id])
+
+  const handleCopyText = async () => {
+    if (!note) return
+    try {
+      await navigator.clipboard.writeText(noteToText(note))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (err) {
+      console.error('Failed to copy note text:', err)
+    }
+  }
 
   // Newest first. `note.note_versions` carries every version (getNotes()
   // fetches note_versions(*), not just the latest), so this is real
@@ -188,6 +202,9 @@ export default function Drawer({
           </header>
 
           <div style={{ display: 'flex', gap: 8, margin: '12px 18px 0', flexWrap: 'wrap' }}>
+            <button className="nf-btn" onClick={handleCopyText} title="Copy this note's text" style={btnStyle}>
+              {copied ? 'Copied!' : 'Copy text'}
+            </button>
             <button className="nf-btn" onClick={onExportImage} title="Export this note as an image" style={btnStyle}>
               Export image
             </button>
