@@ -14,6 +14,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 ## [Unreleased]
 
 ### Added
+- Note editing: title (at capture time and after, via click-to-rename on the card and drawer), raw capture text (drawer Edit/Save/Cancel — a deliberate departure from the original "never overwritten" promise, done at the user's explicit request), and structured fields (drawer "Edit fields", saved as a new `note_versions` row per the existing insert-only versioning rule, never an in-place overwrite)
+- Copy note text to clipboard, on both the card and the drawer, reusing the existing plain-text export formatter
+- Middleware/proxy for Supabase session refresh and auth route protection (`proxy.ts`) — `/board` and `/templates` now redirect unauthenticated visitors to `/login` instead of rendering an empty page
+- A working "Log out" control and a home link on the board topbar logo — previously nothing in the app called the existing `/auth/logout` route handler
+- `app/icon.svg` (the app previously had no favicon at all)
+- Manual testing checklist (`docs/MANUAL_TESTING.md`)
+- `docs/DEPLOY.md`, `.env.example`
+
+### Fixed
+- Board themes (felt/cork/slate/chalkboard) were setting `--brass` via an inline style, which permanently overrode the light/dark mode's own value for that variable — brass-accented topbar/rail elements stopped responding to the appearance toggle once any theme was applied. Themes now only touch `--felt`/`--felt-2`.
+- Dark mode is now the default appearance across the landing, login/signup, and board (previously light was default everywhere except the board)
+- Page title said "NoteFlow" (the internal/spec codename) instead of "Struc.txt" (the actual product name used throughout the UI)
+- `revalidatePath` calls in server actions that run as detached background tasks (`restructureNoteAction`, `enrichNoteAction`) threw "used during render... unsupported" once the originating request had completed — removed entirely (never load-bearing; every page re-fetches its own data directly)
+- `updateNoteFlags` threw a 500 (`PGRST116`) whenever a stale in-flight request landed after the note had already been deleted (e.g. rapid pin-then-delete) — no longer requests a row back, so it silently no-ops instead
+- A temporal-dead-zone crash closing the capture modal while a recording was in progress (`stopRecording` referenced before its declaration on the render where the modal closes)
+- `setState`-during-render crash ("Cannot update a component ('Router') while rendering a different component") on drag/bring-to-front/stack/auto-arrange/restore — all were calling a Server-Action-triggering side effect inside a `setNotes` updater function
+
+### Added
 - Product spec written (`noteflow-spec.md`)
 - Board interaction/visual prototype built (`Struc.txt Board.dc.html`, `Struc.txt Site.dc.html`, `tokens.js`, `seed.js`)
 - Phase and gate plan defined (`PHASES_AND_GATES.md`)
