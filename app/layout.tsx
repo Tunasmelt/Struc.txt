@@ -23,8 +23,8 @@ const publicSans = Public_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'NoteFlow',
-  description: 'Turn rough input into structured notes on a corkboard',
+  title: 'Struc.txt',
+  description: 'Rough notes in. Structured notes out.',
 }
 
 export default function RootLayout({
