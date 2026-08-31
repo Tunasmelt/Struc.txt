@@ -22,7 +22,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). This file is **a
 - Manual testing checklist (`docs/MANUAL_TESTING.md`)
 - `docs/DEPLOY.md`, `.env.example`
 
+### Added
+- Mobile-responsive board: a hamburger toggle collapses the rail into an overlay drawer below the `md:` breakpoint, and secondary topbar controls (appearance/theme/snap/stack-arrange-restore/help/export/logout) fold into a "more" menu instead of overflowing
+
 ### Fixed
+- Topbar combined a fixed height with `flex-wrap`, so a wrapped second line of controls clipped/overlapped instead of growing to fit — not mobile-specific, any sufficiently narrow window hit it
 - Board themes (felt/cork/slate/chalkboard) were setting `--brass` via an inline style, which permanently overrode the light/dark mode's own value for that variable — brass-accented topbar/rail elements stopped responding to the appearance toggle once any theme was applied. Themes now only touch `--felt`/`--felt-2`.
 - Dark mode is now the default appearance across the landing, login/signup, and board (previously light was default everywhere except the board)
 - Page title said "NoteFlow" (the internal/spec codename) instead of "Struc.txt" (the actual product name used throughout the UI)
