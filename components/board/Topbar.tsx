@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { AppearanceMode, BOARD_THEMES, BoardTheme } from '@/lib/tokens'
 
 interface TopbarProps {
@@ -74,8 +75,13 @@ export default function Topbar({
         padding: 'var(--topbar-pad)'
       }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2 pr-4 border-r h-full flex-none" style={{ borderColor: 'var(--chrome-line)' }}>
+      {/* Logo — links back to the marketing/landing page */}
+      <Link
+        href="/"
+        title="Back to Struc.txt home"
+        className="flex items-center gap-2 pr-4 border-r h-full flex-none"
+        style={{ borderColor: 'var(--chrome-line)' }}
+      >
         <span
           className="grid place-items-center w-[26px] h-[26px] border rounded flex-none"
           style={{
@@ -95,7 +101,7 @@ export default function Topbar({
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--chalk-dim)' }}>
           board
         </span>
-      </div>
+      </Link>
 
       {/* Search */}
       <div className="relative flex-1 min-w-[120px] max-w-[300px]">
@@ -204,6 +210,20 @@ export default function Topbar({
       </div>
 
       <div className="flex-1" />
+
+      {/* Log out — was missing entirely: nothing anywhere in the app called
+          the existing /auth/logout route handler, so there was no way to
+          sign out or leave the board short of clearing cookies by hand. */}
+      <form action="/auth/logout" method="post" className="flex-none">
+        <button
+          type="submit"
+          title="Log out"
+          className="nf-btn px-3 py-1.5 text-sm rounded"
+          style={btnBase}
+        >
+          Log out
+        </button>
+      </form>
 
       {/* Help */}
       <button
