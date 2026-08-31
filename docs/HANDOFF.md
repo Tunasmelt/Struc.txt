@@ -26,11 +26,17 @@ Read this first in any new session, before opening any code. This file exists be
 - [x] Environment variable template — `.env.local` with placeholder names
 - [x] SETUP.md — complete Supabase project setup instructions
 - [x] Architecture reversion — reverted from Appwrite back to Supabase (PostgreSQL, Auth, Storage)
-- [x] Phase 1 — Paste capture form and list view rendered on home page, note insertion wired
-- [x] Phase 2 — AI Restructuring pipeline (Gemini primary, Groq fallback, Zod schema validation, repair retry, `note_versions` persistence, background restructuring trigger, `NoteList` UI status and field rendering)
-- [~] Phase 3 — Board rendering: corkboard UI built (`app/board/page.tsx`, `components/board/{Board,NoteCard,Rail,Topbar,CaptureModal,types}.tsx`, `lib/tokens.ts`, `styles/tokens.css`), real Supabase data wired in, drag/click-to-front persist via `updateNotePosition`; only remaining gate item is verifying no jank at 10+ notes
-- [~] Phase 4 — Templates library: preset seed migration + dynamic per-template Zod schema/prompt generation (`lib/prompts/dynamicTemplate.ts`) replacing the phase 2 hardcoded pipeline, template editor UI (`app/templates/`, `components/templates/`), capture/board wiring; remaining work is applying the seed migration and a live-LLM smoke test (see gate)
-- [ ] Phase 5+ — see `PHASES_AND_GATES.md`
+- [x] Phase 1 — Paste capture, user-verified 2026-08-30 (the original plain-list UI was superseded by the real board before this closed out — see `PHASES_AND_GATES.md` for that substitution noted honestly)
+- [x] Phase 2 — AI restructuring pipeline (Gemini primary, Groq fallback, Zod validation + repair retry, background job), user-verified 2026-08-30
+- [x] Phase 3 — Board rendering (corkboard UI, drag/z-index persistence), user-verified 2026-08-30
+- [x] Phase 4 — Templates library (six presets, dynamic per-template prompt/schema generation, clone/build-from-scratch editor), user-verified 2026-08-30
+- [x] Phase 5 — Search & filters (real Postgres full-text search, combinable tag/date/template filters), user-verified 2026-08-30
+- [~] Phase 6 — Audio capture (MediaRecorder, Web Speech live transcript, Whisper cleanup pass): built and `tsc`/`build`-clean, **not yet verified with a real microphone**
+- [~] Phase 7 — Enrichment pass (suggested tags + action items via a second LLM call): built and clean, **not yet verified against live Gemini/Groq traffic**
+- [~] Phase 8 — Version history (raw/structured toggle, re-run-as-template, version browsing): built and clean, not yet click-tested live
+- [~] Phase 9 — Board quality-of-life (stack/arrange/pin/archive/duplicate/delete/theme-switch): built and clean, not yet click-tested live
+- [~] Phase 10 — Export (Markdown/text/image, PDF stubbed honestly): built and clean, not yet click-tested live
+- Deferred (P2, not started, requires explicit go-ahead per `PHASES_AND_GATES.md`): real-time collaboration, multi-speaker diarization, linked notes/backlinks, bulk import, native/PWA mobile, due-date reminders, read-only sharing links
 
 ---
 
@@ -40,7 +46,16 @@ Read this first in any new session, before opening any code. This file exists be
 
 ---
 
-## 4. Session log (append new entries at the top, newest first)
+### [2026-09-01] — Claude Code (Sonnet 5) (docs reconciliation, no code changes)
+- Phase worked on: none — asked to "build the next phase," but every numbered phase already had its build items done, so asked the user to clarify what they meant rather than guessing at a Deferred (P2) feature (which the docs' own rules say needs explicit go-ahead). The user chose "fix the stale phase-status docs" instead of building something.
+- What changed (docs only, `PHASES_AND_GATES.md` + `HANDOFF.md`):
+  - Phase 1's header still said "IN PROGRESS" and its exit gate was entirely unchecked, despite the user having confirmed manual testing through Phase 5 back on 2026-08-30 (see that session's log entry) and despite `HANDOFF.md`'s own §2 already having claimed Phase 1 "done" even further back. Flipped to user-verified, with a note that Phase 1's "plain list view" build item was superseded by the real board before ever being finished as literally described — the underlying capture/persist/display mechanics it was meant to prove are exercised by the board today, which is what the user's testing actually covered.
+  - Phase 2 had no status header at all and a fully unchecked exit gate, despite an already-existing 2026-08-26 session log entry claiming every item met, plus the 2026-08-30 Phase 1-5 confirmation. Flipped to user-verified.
+  - Phase 3's exit gate was already 4/4 checked (from two sessions ago) but its header still said "IN PROGRESS" — a header that was never updated after the checkboxes were. Flipped to match.
+  - Phase 10's header wording ("MOSTLY PULLED FORWARD") was inconsistent with the "built, pending live verification" phrasing used for Phases 8/9 describing the identical situation (all build items done, exit gate not live-tested) — normalized for consistency, no factual change.
+  - `HANDOFF.md` §2 ("What's done") was stale, stopping at Phase 4 with tildes — rewrote it to list all ten phases' actual current status plus the untouched Deferred list, matching what `PHASES_AND_GATES.md` now says.
+- Gate status: no phase's actual gate status changed as a result of this session — this was a documentation-accuracy pass, not new verification. Phases 6/7/8/9/10 remain exactly as unverified as they were before this entry.
+- What the next session should do first: the real next step is still the live logged-in walkthrough flagged at the top of §1 — this session didn't reduce that gap, it just made sure the docs stopped understating how much of Phases 1-5 was already confirmed.
 
 ### [2026-09-01] — Claude Code (Sonnet 5) (Phase 9 — board theme switching)
 - Phase worked on: closing out the one genuinely-unbuilt item left in Phase 9, board theme switching, continuing directly from the previous session's Phase 8 work.

@@ -29,46 +29,46 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 1 — Paste capture (no AI yet) 🚧 IN PROGRESS
+## Phase 1 — Paste capture (no AI yet) ✅ user-verified 2026-08-30 (see HANDOFF session log)
 
 **Goal:** Prove the simplest end-to-end path: paste text in, a raw note is saved, it shows up somewhere. No restructuring, no template, no board styling.
 
 **Touches:** a minimal capture form, `notes` collection writes
 
 **Build:**
-- Paste textarea → saves `raw_text` + timestamp to `notes`
-- Plain list view of saved notes (not the board yet)
+- [x] Paste textarea → saves `raw_text` + timestamp to `notes` — `CaptureModal.tsx`'s Paste tab → `createNote`
+- [x] Plain list view of saved notes (not the board yet) — **superseded**: the original plain-list UI was replaced by the real board (Phase 3) before this phase was ever closed out, so this specific build item was never literally finished as described. The underlying capture→persist→display mechanics it was meant to prove are exercised by every capture on the board today, which is what the user's manual testing through Phase 5 actually covered — noting the substitution honestly rather than silently checking off a UI that no longer exists.
 
 **Exit gate:**
-- [ ] Pasting text and submitting creates a document in `notes` with the exact text preserved
-- [ ] Refreshing the page still shows the note (it's actually persisted, not just in React state)
-- [ ] Works with empty template_id (nullable, per spec)
+- [x] Pasting text and submitting creates a document in `notes` with the exact text preserved — user-confirmed via manual testing (2026-08-30)
+- [x] Refreshing the page still shows the note (it's actually persisted, not just in React state) — user-confirmed
+- [x] Works with empty template_id (nullable, per spec) — user-confirmed; `createNote`'s `templateId` param is optional and `notes.template_id` is nullable in the schema
 
 ---
 
-## Phase 2 — Restructuring, one hardcoded template
+## Phase 2 — Restructuring, one hardcoded template ✅ user-verified 2026-08-30 (see HANDOFF session log)
 
 **Goal:** Prove the AI pipeline shape works before building the template system around it. Use exactly one hardcoded template (Meeting Minutes) — no template picker, no cloning, no custom fields yet.
 
 **Touches:** `lib/prompts/`, a restructure route handler, `note_versions` collection, Zod schemas
 
 **Build:**
-- Server route handler calls Gemini with the raw text + the Meeting Minutes field schema
-- Response validated with Zod; on failure, one repair retry, then fall back to unstructured storage
-- On Gemini 429/5xx, fall back to Groq
-- Successful structured result written as a new document in `note_versions`
-- Restructuring runs as a background job — the raw note is visible immediately, structured version fills in when ready (per spec §4.4)
+- [x] Server route handler calls Gemini with the raw text + the Meeting Minutes field schema — `lib/ai/restructure.ts`, `lib/prompts/meetingMinutes.ts`
+- [x] Response validated with Zod; on failure, one repair retry, then fall back to unstructured storage — `tryParseAndValidate` + repair-prompt retry in `lib/ai/restructure.ts`
+- [x] On Gemini 429/5xx, fall back to Groq — `lib/ai/providers.ts`
+- [x] Successful structured result written as a new document in `note_versions` — `app/actions/restructure.ts`
+- [x] Restructuring runs as a background job — the raw note is visible immediately, structured version fills in when ready — `createNote`/`createAudioNote` fire restructuring fire-and-forget, never awaited before returning
 
 **Exit gate:**
-- [ ] Pasting a rough meeting-notes paragraph produces a structured note matching the Meeting Minutes schema
-- [ ] Forcing a malformed-JSON case (mock or genuinely observed) triggers the repair retry, then the unstructured fallback — verified, not assumed
-- [ ] Simulating a Gemini rate-limit response actually triggers the Groq fallback path
-- [ ] The raw note remains visible on the page the whole time the restructure job is running (no blocking modal)
-- [ ] `note_versions.model_used` and `prompt_version` are populated correctly
+- [x] Pasting a rough meeting-notes paragraph produces a structured note matching the Meeting Minutes schema — user-confirmed via manual testing (2026-08-30)
+- [x] Forcing a malformed-JSON case (mock or genuinely observed) triggers the repair retry, then the unstructured fallback — user-confirmed
+- [x] Simulating a Gemini rate-limit response actually triggers the Groq fallback path — user-confirmed
+- [x] The raw note remains visible on the page the whole time the restructure job is running (no blocking modal) — user-confirmed
+- [x] `note_versions.model_used` and `prompt_version` are populated correctly — user-confirmed
 
 ---
 
-## Phase 3 — Board rendering 🚧 IN PROGRESS (core done, one gate item unverified)
+## Phase 3 — Board rendering ✅ user-verified 2026-08-30 (see HANDOFF session log)
 
 **2026-08-30 note:** the user asked for the board rebuilt to the *literal* dark-chrome prototype fidelity (not the lighter "modern flat" treatment originally shipped here), and pulled forward pin/archive/duplicate/delete/stack/auto-arrange/export/drawer/context-menu/keyboard-shortcuts — material originally scoped for Phases 8-10 below. That work landed out of order; see the "Pulled forward" note under Phases 8-10 for what's now done ahead of schedule and what's still genuinely deferred.
 
@@ -227,9 +227,9 @@ Live interaction verification (drag/pin/archive/stack/theme against a real logge
 
 ---
 
-## Phase 10 — Export 🚧 MOSTLY PULLED FORWARD (2026-08-30)
+## Phase 10 — Export 🚧 built, pending live verification (2026-08-30)
 
-**Pulled-forward note:** built alongside Phase 9 as part of the same dark-chrome fidelity pass.
+**Note:** built alongside Phase 9 as part of the same dark-chrome fidelity pass; all three build items are done, only live click-through of the exit gate remains.
 
 **Goal:** Real Markdown/plain-text/image export; PDF stubbed with an honest "coming soon."
 
