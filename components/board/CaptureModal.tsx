@@ -73,6 +73,41 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     setSpeechSupported(!!getSpeechRecognitionCtor())
   }, [])
 
+  // Declared before the `if (!open) return null` below on purpose: the
+  // effect right after it must be able to call this on the render where
+  // `open` flips to false, and that render exits at the early return before
+  // ever reaching a declaration placed after it — referencing a
+  // not-yet-initialized `const` in that render's closure throws
+  // "Cannot access before initialization" (a real bug this project shipped
+  // with, not a hypothetical).
+  const stopRecording = (discard = false) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+    setLevels(new Array(BAR_COUNT).fill(0.08))
+
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
+
+    audioCtxRef.current?.close().catch(() => {})
+    audioCtxRef.current = null
+    analyserRef.current = null
+
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+
+    const recorder = recorderRef.current
+    recorderRef.current = null
+    setRecording(false)
+
+    if (discard || !recorder) return
+    return new Promise<Blob>((resolve) => {
+      recorder.onstop = () => {
+        resolve(new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' }))
+      }
+      recorder.stop()
+    })
+  }
+
   useEffect(() => {
     // Stop everything if the modal is closed mid-recording.
     if (!open) stopRecording(true)
@@ -149,34 +184,6 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not access the microphone')
     }
-  }
-
-  const stopRecording = (discard = false) => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    rafRef.current = null
-    setLevels(new Array(BAR_COUNT).fill(0.08))
-
-    recognitionRef.current?.stop()
-    recognitionRef.current = null
-
-    audioCtxRef.current?.close().catch(() => {})
-    audioCtxRef.current = null
-    analyserRef.current = null
-
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-
-    const recorder = recorderRef.current
-    recorderRef.current = null
-    setRecording(false)
-
-    if (discard || !recorder) return
-    return new Promise<Blob>((resolve) => {
-      recorder.onstop = () => {
-        resolve(new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' }))
-      }
-      recorder.stop()
-    })
   }
 
   const handleStopAndSave = async () => {
