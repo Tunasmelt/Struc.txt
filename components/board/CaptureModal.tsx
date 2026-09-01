@@ -9,7 +9,7 @@ import { ResolvedTemplate } from './types'
 interface CaptureModalProps {
   open: boolean
   onClose: () => void
-  onCreated: () => void
+  onCreated: (created?: unknown) => void
   templates: ResolvedTemplate[]
 }
 
@@ -210,10 +210,10 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
         .upload(path, blob, { contentType: blob.type })
       if (uploadError) throw uploadError
 
-      await createAudioNote(path, liveTranscript, templateId || null, title || null, !restructureAfterRecord)
+      const created = await createAudioNote(path, liveTranscript, templateId || null, title || null, !restructureAfterRecord)
       setLiveTranscript('')
       setTitle('')
-      onCreated()
+      onCreated(created)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save recording')
@@ -227,10 +227,10 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     setWorking(true)
     setError(null)
     try {
-      await createNote(raw, templateId || null, title || null, skipRestructure)
+      const created = await createNote(raw, templateId || null, title || null, skipRestructure)
       setRaw('')
       setTitle('')
-      onCreated()
+      onCreated(created)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save note')

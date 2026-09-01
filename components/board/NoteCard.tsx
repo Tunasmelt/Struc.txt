@@ -135,6 +135,7 @@ export default function NoteCard({
   const [copied, setCopied] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(note.title || '')
+  const [contentExpanded, setContentExpanded] = useState(false)
   const [position, setPosition] = useState({ x: note.position.x, y: note.position.y })
 
   const cardRef = useRef<HTMLElement>(null)
@@ -169,6 +170,20 @@ export default function NoteCard({
   const openActions = actions.filter((i) => !i.done).length
   const tags = tagsFor(note)
   const suggested = suggestedNoteTags(note)
+
+  // Cards used to render structured content with no length cap at all, so a
+  // note with a huge transcript/body grew arbitrarily tall and blew out the
+  // board layout (see the "unbroken wall of text" report). This is a rough
+  // character-count heuristic rather than a real overflow measurement —
+  // good enough to decide "does this note need a fold," not pixel-exact.
+  const contentLength = !body || !tmpl
+    ? note.raw_text.length
+    : sortedFields.reduce((sum, field) => {
+        const value = body[field.key]
+        if (value === undefined || value === null || value === '') return sum
+        return sum + (Array.isArray(value) ? JSON.stringify(value).length : String(value).length)
+      }, 0)
+  const isLongContent = contentLength > 420
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -212,6 +227,16 @@ export default function NoteCard({
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    // handlePointerDown returns early for any [data-act] button (copy,
+    // collapse, pin gear, resize handle) without touching dragRef — but
+    // pointerup still bubbles up to this handler regardless (a button's
+    // onClick calling stopPropagation only stops the click event, not a
+    // separate pointerup one), so without this same guard, clicking ANY
+    // button on the card fell through to the stale dragRef.current.moved
+    // from the last real drag and called onOpen(), popping the drawer
+    // open — which is what made collapsing look like it was being undone
+    // by every button, not just collapse itself.
+    if ((e.target as HTMLElement).closest('[data-act]')) return
     setIsDragging(false)
     cardRef.current?.releasePointerCapture(e.pointerId)
     if (dragRef.current.moved) {
@@ -424,10 +449,29 @@ export default function NoteCard({
         <>
           <div style={{ height: 1, background: 'var(--card-rule)', margin: '0 -16px 12px' }} />
 
-          <div>
+          <div
+            style={{
+              maxHeight: !contentExpanded && isLongContent ? 240 : 'none',
+              overflow: 'hidden',
+              position: 'relative'
+            }}
+          >
+            {!contentExpanded && isLongContent && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 48,
+                  background: 'linear-gradient(to bottom, transparent, var(--card-bg))',
+                  pointerEvents: 'none'
+                }}
+              />
+            )}
             {!body || !tmpl ? (
               <p style={{ fontSize: '12.8px', lineHeight: 1.45, color: 'var(--ink-2)' }}>
-                {note.raw_text.length > 220 ? note.raw_text.slice(0, 220) + '…' : note.raw_text}
+                {note.raw_text}
                 <br />
                 {/* Used to say "Restructuring…" unconditionally here, which
                     made a "Save as-is" capture (restructure never
@@ -453,6 +497,26 @@ export default function NoteCard({
               </>
             )}
           </div>
+          {isLongContent && (
+            <button
+              data-act="expand"
+              onClick={(e) => {
+                e.stopPropagation()
+                setContentExpanded((v) => !v)
+              }}
+              style={{
+                display: 'block',
+                margin: '4px 0 0',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10.5,
+                letterSpacing: '.06em',
+                color: 'var(--brass-text)',
+                textTransform: 'uppercase'
+              }}
+            >
+              {contentExpanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
 
           <footer
             className="flex flex-wrap items-center gap-1.5"

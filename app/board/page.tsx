@@ -26,6 +26,7 @@ import { confirmTag, rejectTag, toggleActionItem } from '@/app/actions/enrich'
 import { AppearanceMode, BOARD_THEMES, BoardTheme, SPACE } from '@/lib/tokens'
 import { BoardNote, RawNote, ResolvedTemplate, checklistFor, enrichNote, tagsFor, toResolvedTemplate } from '@/components/board/types'
 import { exportElementAsImage, exportNotesAsMarkdown, exportNotesAsText } from '@/lib/board/exportNote'
+import { cacheNote, cacheNotes, cacheTemplates, getCachedNotes, getCachedTemplates } from '@/lib/offlineNotes'
 
 const APPEARANCE_KEY = 'noteflow-board-appearance'
 const THEME_KEY = 'noteflow-board-theme'
@@ -152,34 +153,58 @@ export default function BoardPage() {
     }
   }
 
-  /* ---------- data loading ---------- */
+  /* ---------- data loading ----------
+   * Local-first: hydrate instantly from whatever IndexedDB has cached from
+   * the last successful load (near-zero latency, just parsing already-local
+   * data), then kick off the real Supabase fetch in the background and
+   * reconcile once it resolves. This is what actually fixes "feels stale" —
+   * the board painting real content on first frame instead of sitting on a
+   * loading state for two round-trips (notes + templates) every visit. */
+  const applyNotes = useCallback((data: RawNote[], resolvedTemplates: ResolvedTemplate[]) => {
+    const templatesById = Object.fromEntries(resolvedTemplates.map((t) => [t.id, t]))
+    setTemplates(resolvedTemplates)
+    const enriched = data.map((n) => enrichNote(n, templatesById))
+    setNotes(enriched)
+    setWidths((prev) => {
+      const next = { ...prev }
+      enriched.forEach((n) => {
+        if (!(n.id in next)) next[n.id] = SPACE.noteW
+      })
+      return next
+    })
+    const maxZ = enriched.reduce((max, n) => Math.max(max, n.position.z_index ?? 0), 0)
+    setZTop((prev) => Math.max(prev, maxZ))
+  }, [])
+
   const loadNotes = useCallback(async () => {
     try {
       const [data, templateRows] = await Promise.all([getNotes() as Promise<RawNote[]>, getTemplates()])
       const resolvedTemplates = templateRows.map(toResolvedTemplate)
-      const templatesById = Object.fromEntries(resolvedTemplates.map((t) => [t.id, t]))
-      setTemplates(resolvedTemplates)
-      const enriched = data.map((n) => enrichNote(n, templatesById))
-      setNotes(enriched)
-      setWidths((prev) => {
-        const next = { ...prev }
-        enriched.forEach((n) => {
-          if (!(n.id in next)) next[n.id] = SPACE.noteW
-        })
-        return next
-      })
-      const maxZ = enriched.reduce((max, n) => Math.max(max, n.position.z_index ?? 0), 0)
-      setZTop((prev) => Math.max(prev, maxZ))
+      applyNotes(data, resolvedTemplates)
+      cacheNotes(data).catch(() => {})
+      cacheTemplates(resolvedTemplates).catch(() => {})
     } catch (error) {
       console.error('Failed to load notes:', error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyNotes])
 
   useEffect(() => {
-    loadNotes()
-  }, [loadNotes])
+    let cancelled = false
+    ;(async () => {
+      const [cachedNotes, cachedTemplates] = await Promise.all([getCachedNotes(), getCachedTemplates()])
+      if (!cancelled && cachedNotes.length > 0) {
+        applyNotes(cachedNotes, cachedTemplates)
+        setLoading(false)
+      }
+      loadNotes()
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ---------- position / z-order ---------- */
   const persistPosition = useCallback((id: string, position: { x: number; y: number; rotation: number; z_index: number }) => {
@@ -187,6 +212,33 @@ export default function BoardPage() {
       console.error(`Failed to persist position for note ${id}:`, error)
     })
   }, [])
+
+  // createNote/createAudioNote already return the freshly-inserted row
+  // (via .select().single()) — merging it straight into local state avoids
+  // the full loadNotes() round-trip (getNotes() + getTemplates(), a second
+  // network hop) that was the actual cause of new notes taking 4-5s to
+  // show up. Falls back to a full reload if the shape looks off, rather
+  // than risk silently dropping a note the user just created.
+  const handleNoteCreated = useCallback(
+    (created?: unknown) => {
+      const row = created as RawNote | undefined
+      if (!row || !row.id) {
+        loadNotes()
+        return
+      }
+      const templatesById = Object.fromEntries(templates.map((t) => [t.id, t]))
+      const next = zTop + 1
+      const basePosition = row.position || { x: 24, y: 24, rotation: 0, z_index: next }
+      const position = { ...basePosition, z_index: next }
+      const enriched = enrichNote({ ...row, position, note_versions: row.note_versions ?? [], note_tags: row.note_tags ?? [], action_items: row.action_items ?? [] }, templatesById)
+      setZTop(next)
+      setNotes((prev) => [enriched, ...prev])
+      setWidths((prev) => (row.id in prev ? prev : { ...prev, [row.id]: SPACE.noteW }))
+      persistPosition(row.id, position)
+      cacheNote({ ...row, position }).catch(() => {})
+    },
+    [templates, zTop, loadNotes, persistPosition]
+  )
 
   // Note on the pattern below: persistPosition (and every position-mutating
   // callback in this file) must never be called *inside* a setNotes updater
@@ -743,7 +795,7 @@ export default function BoardPage() {
         />
       </div>
 
-      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={loadNotes} templates={templates} />
+      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={handleNoteCreated} templates={templates} />
 
       <Drawer
         note={openNoteObj}
