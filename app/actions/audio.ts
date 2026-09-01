@@ -16,7 +16,8 @@ export async function createAudioNote(
   storagePath: string,
   liveTranscript: string,
   templateId?: string | null,
-  titleOverride?: string | null
+  titleOverride?: string | null,
+  skipRestructure?: boolean
 ) {
   const supabase = await createClient()
 
@@ -42,6 +43,7 @@ export async function createAudioNote(
       search: placeholderText,
       user_id: user.id,
       template_id: templateId ?? null,
+      restructure_pending: !skipRestructure,
     })
     .select()
     .single()
@@ -51,17 +53,18 @@ export async function createAudioNote(
     throw new Error(`Failed to create note: ${error.message}`)
   }
 
-  // Whisper cleanup + restructuring both run in the background — the note
-  // (with its live/placeholder transcript) is visible immediately per the
-  // same non-blocking pattern Phase 2 established for paste capture.
-  transcribeAndRestructure(data.id, storagePath, templateId ?? null).catch((err) => {
+  // Whisper cleanup always runs — that's just turning audio into clean
+  // text, independent of whether AI restructuring happens afterward.
+  // Restructuring itself is skippable, same as paste capture's "Save"
+  // vs "Restructure instead".
+  transcribeAndRestructure(data.id, storagePath, templateId ?? null, !!skipRestructure).catch((err) => {
     console.error(`Background transcription failed for note ${data.id}:`, err)
   })
 
   return data
 }
 
-async function transcribeAndRestructure(noteId: string, storagePath: string, templateId: string | null) {
+async function transcribeAndRestructure(noteId: string, storagePath: string, templateId: string | null, skipRestructure: boolean) {
   const supabase = await createClient()
 
   let transcript: string | null = null
@@ -95,7 +98,9 @@ async function transcribeAndRestructure(noteId: string, storagePath: string, tem
     finalText = existing?.raw_text || '(audio capture — transcript unavailable)'
   }
 
-  await restructureNoteAction(noteId, finalText!, templateId)
+  if (!skipRestructure) {
+    await restructureNoteAction(noteId, finalText!, templateId)
+  }
 }
 
 /** Signed URL for playing back a note's recording — never a public path,

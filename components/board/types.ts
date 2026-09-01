@@ -26,6 +26,7 @@ export interface RawNote {
   raw_text: string
   audio_path: string | null
   transcript_source: string | null
+  restructure_pending: boolean
   position: NotePosition
   template_id: string | null
   pinned: boolean

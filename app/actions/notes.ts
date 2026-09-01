@@ -42,6 +42,7 @@ export async function createNote(
       search: rawText,
       user_id: user.id,
       template_id: templateId ?? null,
+      restructure_pending: !skipRestructure,
     })
     .select()
     .single()
@@ -289,6 +290,7 @@ export async function duplicateNote(noteId: string) {
       template_id: source.template_id,
       pinned: false,
       archived: false,
+      restructure_pending: true,
     })
     .select()
     .single()

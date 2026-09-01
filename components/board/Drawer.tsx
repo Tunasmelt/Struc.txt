@@ -516,7 +516,37 @@ export default function Drawer({
             ) : (
               <div>
                 {!tmpl ? (
-                  <p style={{ fontSize: 13, color: 'var(--muted)' }}>Still restructuring…</p>
+                  <div>
+                    {/* Used to say "Still restructuring…" unconditionally,
+                        which looked permanently stuck for a note whose
+                        restructure was never actually requested (e.g.
+                        "Save as-is"). Now reflects whether a background
+                        job is genuinely in flight, and offers a way to
+                        structure it either way. */}
+                    <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
+                      {note.restructure_pending ? 'Still restructuring…' : "Saved as-is — hasn't been restructured yet."}
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '.05em' }}>Structure with</span>
+                      <select
+                        value={rerunKey}
+                        onChange={(e) => setRerunKey(e.target.value)}
+                        style={{ background: 'var(--chrome)', border: '1px solid var(--chrome-line)', padding: '7px 9px', borderRadius: 8, color: 'var(--chalk)' }}
+                      >
+                        <option value="" disabled>
+                          Pick a template…
+                        </option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="nf-btn" onClick={handleRerun} style={btnStyle} disabled={rerunBusy || !rerunKey}>
+                        {rerunBusy ? 'Working…' : 'Restructure'}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     {isLatestVersion && (

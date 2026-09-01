@@ -53,6 +53,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
   const [mode, setMode] = useState<CaptureMode>('paste')
   const [raw, setRaw] = useState('')
   const [title, setTitle] = useState('')
+  // Off by default — restructuring is an explicit opt-in for recordings
+  // too, same reasoning as paste's Save/Restructure split.
+  const [restructureAfterRecord, setRestructureAfterRecord] = useState(false)
   const [templateId, setTemplateId] = useState<string>('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -207,7 +210,7 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
         .upload(path, blob, { contentType: blob.type })
       if (uploadError) throw uploadError
 
-      await createAudioNote(path, liveTranscript, templateId || null, title || null)
+      await createAudioNote(path, liveTranscript, templateId || null, title || null, !restructureAfterRecord)
       setLiveTranscript('')
       setTitle('')
       onCreated()
@@ -405,6 +408,15 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
                   {liveTranscript}
                 </p>
               )}
+              <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--chalk-dim)' }}>
+                <input
+                  type="checkbox"
+                  checked={restructureAfterRecord}
+                  onChange={(e) => setRestructureAfterRecord(e.target.checked)}
+                  style={{ accentColor: 'var(--brass)' }}
+                />
+                Restructure with AI after transcription
+              </label>
             </div>
           ) : (
             <textarea
@@ -454,7 +466,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
               className="mr-auto text-[10.5px]"
               style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '.05em' }}
             >
-              {mode === 'record' ? 'Whisper transcribes after you stop · then Groq restructures' : 'Groq for restructuring · falls back to Gemini if it errors'}
+              {mode === 'record'
+                ? `Whisper transcribes after you stop${restructureAfterRecord ? ' · then Groq restructures' : ' · saved as-is unless you check restructure'}`
+                : 'Groq for restructuring · falls back to Gemini if it errors'}
             </span>
           )}
           <button
@@ -467,22 +481,27 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
           </button>
           {mode === 'paste' && (
             <>
+              {/* Restructure is an explicit opt-in, not the default action
+                  — Save is the primary button. It used to be the reverse
+                  (Restructure was the only prominent option), which forced
+                  every capture through the AI pipeline whether you wanted
+                  that or not. */}
               <button
-                onClick={() => handleRestructure(true)}
+                onClick={() => handleRestructure(false)}
                 disabled={working || !raw.trim()}
-                title="Save exactly as typed — you can restructure it later from the board"
+                title="Restructure with AI after saving"
                 className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ border: '1px solid var(--chrome-line)', background: 'var(--chrome-2)', color: 'var(--chalk)' }}
               >
-                Save as-is
+                Restructure instead
               </button>
               <button
-                onClick={() => handleRestructure(false)}
+                onClick={() => handleRestructure(true)}
                 disabled={working || !raw.trim()}
                 className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ border: '1px solid var(--brass)', background: 'var(--brass)', color: 'var(--brass-ink)' }}
               >
-                Restructure
+                Save
               </button>
             </>
           )}

@@ -429,7 +429,14 @@ export default function NoteCard({
               <p style={{ fontSize: '12.8px', lineHeight: 1.45, color: 'var(--ink-2)' }}>
                 {note.raw_text.length > 220 ? note.raw_text.slice(0, 220) + '…' : note.raw_text}
                 <br />
-                <em style={{ fontStyle: 'normal', color: 'var(--muted)' }}>Restructuring…</em>
+                {/* Used to say "Restructuring…" unconditionally here, which
+                    made a "Save as-is" capture (restructure never
+                    requested) look permanently stuck rather than just
+                    saved — this now reflects whether a background job is
+                    actually in flight. */}
+                <em style={{ fontStyle: 'normal', color: 'var(--muted)' }}>
+                  {note.restructure_pending ? 'Restructuring…' : 'Saved — not restructured'}
+                </em>
               </p>
             ) : (
               <>
