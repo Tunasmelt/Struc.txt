@@ -9,7 +9,7 @@ export interface EnrichmentResult {
 }
 
 /** Pass 2 — a genuinely separate network call from restructuring (pass 1),
- *  reusing the same Gemini-primary/Groq-fallback providers but with its own
+ *  reusing the same Groq-primary/Gemini-fallback providers but with its own
  *  prompt and its own request. No repair-retry here (unlike pass 1): a
  *  malformed or empty enrichment result is treated as "nothing to add" by
  *  the caller, not worth a second round-trip for tags/action-items. */
@@ -18,10 +18,10 @@ export async function enrichNoteContent(structuredBody: Record<string, unknown>)
 
   let llmResult
   try {
-    llmResult = await generateWithGemini(prompt)
-  } catch (err) {
-    console.warn('Enrichment: Gemini failed, falling back to Groq:', err instanceof Error ? err.message : err)
     llmResult = await generateWithGroq(prompt)
+  } catch (err) {
+    console.warn('Enrichment: Groq failed, falling back to Gemini:', err instanceof Error ? err.message : err)
+    llmResult = await generateWithGemini(prompt)
   }
 
   const parsed = JSON.parse(llmResult.text)

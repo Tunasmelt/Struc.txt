@@ -13,7 +13,12 @@ import { restructureNoteAction } from './restructure'
 // completed. Real bug this project shipped with; removed rather than
 // worked around.
 
-export async function createNote(rawText: string, templateId?: string | null, titleOverride?: string | null) {
+export async function createNote(
+  rawText: string,
+  templateId?: string | null,
+  titleOverride?: string | null,
+  skipRestructure?: boolean
+) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,9 +54,14 @@ export async function createNote(rawText: string, templateId?: string | null, ti
   // Trigger restructuring as a background task (non-blocking per Phase 2 spec §4.4).
   // If no template was chosen, this falls back to the Meeting Minutes preset
   // (see restructureNoteAction) to preserve Phase 1/2's always-restructure behavior.
-  restructureNoteAction(data.id, rawText, templateId ?? null).catch((err) => {
-    console.error(`Background restructuring failed for note ${data.id}:`, err)
-  })
+  // Skippable: capture always forced a restructure before, with no way to
+  // just save the raw text as-is (e.g. a quick note you don't want shaped
+  // into a template, or want to restructure later on your own terms).
+  if (!skipRestructure) {
+    restructureNoteAction(data.id, rawText, templateId ?? null).catch((err) => {
+      console.error(`Background restructuring failed for note ${data.id}:`, err)
+    })
+  }
 
   return data
 }

@@ -185,6 +185,14 @@ export default function NoteCard({
     if ((e.target as HTMLElement).closest('[data-act]')) return
     onBringToFront(note.id)
     dragRef.current = { startX: e.clientX, startY: e.clientY, initialX: position.x, initialY: position.y, moved: false }
+    // Pinning only excluded a note from stack/auto-arrange before — it
+    // could still be freely dragged, which doesn't match what "pin"
+    // actually means to anyone using it. Locking position is the point.
+    // dragRef is still reset above so a click still opens the note
+    // (handlePointerUp checks dragRef.current.moved, which needs to be
+    // fresh here, not left over from the last time this note *was*
+    // draggable).
+    if (note.pinned) return
     setIsDragging(true)
     cardRef.current?.setPointerCapture(e.pointerId)
   }
@@ -258,7 +266,7 @@ export default function NoteCard({
         transform: isDragging ? 'scale(1.02)' : isHovering ? 'translateY(-2px)' : 'none',
         boxShadow: isDragging ? 'var(--shadow-note-drag)' : isHovering ? 'var(--shadow-note-hover)' : 'var(--shadow-note)',
         transition: isDragging || isResizing ? 'none' : stacked ? 'var(--t-stacked)' : 'transform .16s ease, box-shadow .16s ease, width .16s ease',
-        cursor: isDragging ? 'grabbing' : 'grab',
+        cursor: note.pinned ? 'default' : isDragging ? 'grabbing' : 'grab',
         touchAction: 'none'
       }}
       onPointerDown={handlePointerDown}

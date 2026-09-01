@@ -219,12 +219,12 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     }
   }
 
-  const handleRestructure = async () => {
+  const handleRestructure = async (skipRestructure: boolean) => {
     if (!raw.trim() || working) return
     setWorking(true)
     setError(null)
     try {
-      await createNote(raw, templateId || null, title || null)
+      await createNote(raw, templateId || null, title || null, skipRestructure)
       setRaw('')
       setTitle('')
       onCreated()
@@ -454,7 +454,7 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
               className="mr-auto text-[10.5px]"
               style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '.05em' }}
             >
-              {mode === 'record' ? 'Whisper transcribes after you stop · then Gemini restructures' : 'Gemini for restructuring · falls back to Groq on rate limit'}
+              {mode === 'record' ? 'Whisper transcribes after you stop · then Groq restructures' : 'Groq for restructuring · falls back to Gemini if it errors'}
             </span>
           )}
           <button
@@ -466,14 +466,25 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
             Cancel
           </button>
           {mode === 'paste' && (
-            <button
-              onClick={handleRestructure}
-              disabled={working || !raw.trim()}
-              className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
-              style={{ border: '1px solid var(--brass)', background: 'var(--brass)', color: 'var(--brass-ink)' }}
-            >
-              Restructure
-            </button>
+            <>
+              <button
+                onClick={() => handleRestructure(true)}
+                disabled={working || !raw.trim()}
+                title="Save exactly as typed — you can restructure it later from the board"
+                className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
+                style={{ border: '1px solid var(--chrome-line)', background: 'var(--chrome-2)', color: 'var(--chalk)' }}
+              >
+                Save as-is
+              </button>
+              <button
+                onClick={() => handleRestructure(false)}
+                disabled={working || !raw.trim()}
+                className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
+                style={{ border: '1px solid var(--brass)', background: 'var(--brass)', color: 'var(--brass-ink)' }}
+              >
+                Restructure
+              </button>
+            </>
           )}
         </footer>
       </div>

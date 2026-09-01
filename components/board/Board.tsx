@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react'
 import NoteCard from './NoteCard'
 import { BoardNote } from './types'
+import { SPACE } from '@/lib/tokens'
 
 export type SortKey = 'recent' | 'title' | 'template'
 
@@ -93,22 +94,22 @@ export default function Board({
     color: 'var(--board-lbl)'
   }
 
+  // The canvas needs to be big enough to hold every note plus room to keep
+  // dragging into, but not so oversized that scrolling into empty space
+  // feels broken — grow from the viewport-sized minimum only as far as
+  // actual note positions require, instead of a flat, always-huge fixed
+  // size regardless of content.
+  const maxNoteX = notes.reduce((max, n) => Math.max(max, n.position.x + (widths[n.id] ?? 262)), 0)
+  const maxNoteY = notes.reduce((max, n) => Math.max(max, n.position.y + 200), 0)
+  const canvasWidth = Math.max(SPACE.boardMinW, maxNoteX + 240)
+  const canvasHeight = Math.max(SPACE.boardMinH, maxNoteY + 240)
+
   return (
     <main
       data-nf="board-scroll"
       className="relative flex-1 overflow-auto"
       style={{ background: 'var(--felt)' }}
     >
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            'linear-gradient(var(--board-grid) 1px, transparent 1px), linear-gradient(90deg, var(--board-grid) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-          zIndex: 0
-        }}
-      />
-
       <div
         className="sticky top-0 z-[6] flex flex-wrap items-center gap-1.5 px-5 py-3"
         style={{ background: 'var(--felt)' }}
@@ -142,12 +143,28 @@ export default function Board({
         data-nf="board"
         className="relative"
         style={{
-          minHeight: 'var(--board-min-h)',
-          minWidth: 'var(--board-min-w)',
+          minHeight: canvasHeight,
+          minWidth: canvasWidth,
           padding: 'var(--board-pad)',
           zIndex: 1
         }}
       >
+        {/* Was a sibling of this div, sized to main's own (unscrolled)
+            viewport box via position:absolute + inset:0 — which pinned it
+            to the scroll container's edges instead of the actual
+            scrollable content, so it stayed visually frozen in place while
+            everything else scrolled past it ("glitching" on scroll). Moved
+            inside the actual content box so its containing block is sized
+            to the real canvas and it scrolls with everything else. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(var(--board-grid) 1px, transparent 1px), linear-gradient(90deg, var(--board-grid) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+            zIndex: 0
+          }}
+        />
         {notes.length === 0 ? (
           <div
             className="absolute left-0 right-0 top-[60px] text-center"

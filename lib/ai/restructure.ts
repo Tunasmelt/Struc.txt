@@ -22,7 +22,7 @@ export interface RestructureResult {
 }
 
 /**
- * Executes LLM call with Gemini primary, Groq fallback, and Zod repair retry.
+ * Executes LLM call with Groq primary, Gemini fallback, and Zod repair retry.
  *
  * When `template` is omitted, this falls back to the original Phase 2
  * hardcoded Meeting Minutes schema/prompt for backward compatibility. When a
@@ -38,18 +38,18 @@ export async function restructureNoteContent(
   const promptVersion = template ? templatePromptVersion(template.id) : PROMPT_VERSION_MEETING_MINUTES
 
   let llmResult: LLMResult | null = null
-  let providerUsed: 'gemini' | 'groq' = 'gemini'
+  let providerUsed: 'gemini' | 'groq' = 'groq'
 
-  // Attempt Primary: Gemini
+  // Attempt Primary: Groq
   try {
-    llmResult = await generateWithGemini(prompt)
+    llmResult = await generateWithGroq(prompt)
   } catch (err: unknown) {
-    console.warn('Gemini failed or rate-limited, attempting Groq fallback:', (err as Error)?.message || err)
-    providerUsed = 'groq'
+    console.warn('Groq failed or rate-limited, attempting Gemini fallback:', (err as Error)?.message || err)
+    providerUsed = 'gemini'
     try {
-      llmResult = await generateWithGroq(prompt)
-    } catch (groqErr: unknown) {
-      console.error('Groq fallback also failed:', (groqErr as Error)?.message || groqErr)
+      llmResult = await generateWithGemini(prompt)
+    } catch (geminiErr: unknown) {
+      console.error('Gemini fallback also failed:', (geminiErr as Error)?.message || geminiErr)
     }
   }
 
