@@ -10,19 +10,11 @@ import ContextMenu from '@/components/board/ContextMenu'
 import ConfirmDeleteModal from '@/components/board/ConfirmDeleteModal'
 import HelpModal from '@/components/board/HelpModal'
 import Toast from '@/components/board/Toast'
-import {
-  getNotes,
-  updateNotePosition,
-  updateNoteFlags,
-  deleteNote,
-  duplicateNote,
-  searchNoteIds,
-  updateNoteTitle,
-  updateNoteRawText,
-  saveEditedNoteVersion
-} from '@/app/actions/notes'
-import { getTemplates } from '@/app/actions/templates'
-import { confirmTag, rejectTag, toggleActionItem } from '@/app/actions/enrich'
+import * as notesActions from '@/app/actions/notes'
+import * as templatesActions from '@/app/actions/templates'
+import * as enrichActions from '@/app/actions/enrich'
+import * as guestNotesApi from '@/lib/guestNotes'
+import { isGuestMode, exitGuestMode } from '@/lib/guestMode'
 import { AppearanceMode, BOARD_THEMES, BoardTheme, SPACE } from '@/lib/tokens'
 import { BoardNote, RawNote, ResolvedTemplate, checklistFor, enrichNote, tagsFor, toResolvedTemplate } from '@/components/board/types'
 import { exportElementAsImage, exportNotesAsMarkdown, exportNotesAsText } from '@/lib/board/exportNote'
@@ -67,6 +59,67 @@ export default function BoardPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mousePos = useRef({ x: 0, y: 0 })
 
+  /* ---------- guest mode ----------
+   * Resolved via an effect (not a useState initializer) for the same reason
+   * appearance/theme below are — document.cookie isn't available during SSR,
+   * and reading it in an initializer would make this render's HTML depend on
+   * something the server render can't see, risking a hydration mismatch.
+   * guestReady gates the data-load effect so it never fires against the
+   * wrong API (real vs. local) before the cookie check resolves. */
+  const [guestMode, setGuestModeState] = useState(false)
+  const [guestReady, setGuestReady] = useState(false)
+
+  useEffect(() => {
+    setGuestModeState(isGuestMode())
+    setGuestReady(true)
+  }, [])
+
+  const exitGuest = useCallback(() => {
+    exitGuestMode()
+    window.location.href = '/login'
+  }, [])
+
+  // Every note-data function this page calls, swapped as a unit between the
+  // real Supabase-backed Server Actions and lib/guestNotes.ts's pure
+  // IndexedDB store. Every call site below goes through notesApi.* instead
+  // of importing either module directly, so guest mode doesn't need a
+  // parallel branch at every handler.
+  const notesApi = useMemo(
+    () =>
+      guestMode
+        ? {
+            getNotes: guestNotesApi.getNotes,
+            getTemplates: guestNotesApi.getTemplates,
+            updateNotePosition: guestNotesApi.updateNotePosition,
+            updateNoteFlags: guestNotesApi.updateNoteFlags,
+            updateNoteTitle: guestNotesApi.updateNoteTitle,
+            updateNoteRawText: guestNotesApi.updateNoteRawText,
+            saveEditedNoteVersion: guestNotesApi.saveEditedNoteVersion,
+            deleteNote: guestNotesApi.deleteNote,
+            duplicateNote: guestNotesApi.duplicateNote,
+            searchNoteIds: guestNotesApi.searchNoteIds,
+            confirmTag: guestNotesApi.confirmTag,
+            rejectTag: guestNotesApi.rejectTag,
+            toggleActionItem: guestNotesApi.toggleActionItem
+          }
+        : {
+            getNotes: notesActions.getNotes,
+            getTemplates: templatesActions.getTemplates,
+            updateNotePosition: notesActions.updateNotePosition,
+            updateNoteFlags: notesActions.updateNoteFlags,
+            updateNoteTitle: notesActions.updateNoteTitle,
+            updateNoteRawText: notesActions.updateNoteRawText,
+            saveEditedNoteVersion: notesActions.saveEditedNoteVersion,
+            deleteNote: notesActions.deleteNote,
+            duplicateNote: notesActions.duplicateNote,
+            searchNoteIds: notesActions.searchNoteIds,
+            confirmTag: enrichActions.confirmTag,
+            rejectTag: enrichActions.rejectTag,
+            toggleActionItem: enrichActions.toggleActionItem
+          },
+    [guestMode]
+  )
+
   /* ---------- full-text search (Phase 5) ----------
    * `query` drives real Postgres full-text search (searchNoteIds, via the
    * notes.search tsvector-backed column) rather than a naive client-side
@@ -85,14 +138,15 @@ export default function BoardPage() {
       return
     }
     searchDebounce.current = setTimeout(() => {
-      searchNoteIds(trimmed)
+      notesApi
+        .searchNoteIds(trimmed)
         .then((ids) => setQueryMatchIds(new Set(ids)))
         .catch((err) => console.error('Search failed:', err))
     }, 250)
     return () => {
       if (searchDebounce.current) clearTimeout(searchDebounce.current)
     }
-  }, [query])
+  }, [query, notesApi])
 
   const showToast = useCallback((message: string, undo?: () => void) => {
     setToast({ message, undo: undo ?? null })
@@ -178,25 +232,34 @@ export default function BoardPage() {
 
   const loadNotes = useCallback(async () => {
     try {
-      const [data, templateRows] = await Promise.all([getNotes() as Promise<RawNote[]>, getTemplates()])
+      const [data, templateRows] = await Promise.all([notesApi.getNotes() as Promise<RawNote[]>, notesApi.getTemplates()])
       const resolvedTemplates = templateRows.map(toResolvedTemplate)
       applyNotes(data, resolvedTemplates)
-      cacheNotes(data).catch(() => {})
-      cacheTemplates(resolvedTemplates).catch(() => {})
+      // Guest notes already ARE the local store (lib/guestNotes.ts) — there's
+      // nothing to reconcile against a server, so the read-cache layer below
+      // (which exists purely to shortcut the Supabase round-trip) is skipped
+      // entirely for guests rather than caching a second, redundant copy.
+      if (!guestMode) {
+        cacheNotes(data).catch(() => {})
+        cacheTemplates(resolvedTemplates).catch(() => {})
+      }
     } catch (error) {
       console.error('Failed to load notes:', error)
     } finally {
       setLoading(false)
     }
-  }, [applyNotes])
+  }, [applyNotes, notesApi, guestMode])
 
   useEffect(() => {
+    if (!guestReady) return
     let cancelled = false
     ;(async () => {
-      const [cachedNotes, cachedTemplates] = await Promise.all([getCachedNotes(), getCachedTemplates()])
-      if (!cancelled && cachedNotes.length > 0) {
-        applyNotes(cachedNotes, cachedTemplates)
-        setLoading(false)
+      if (!guestMode) {
+        const [cachedNotes, cachedTemplates] = await Promise.all([getCachedNotes(), getCachedTemplates()])
+        if (!cancelled && cachedNotes.length > 0) {
+          applyNotes(cachedNotes, cachedTemplates)
+          setLoading(false)
+        }
       }
       loadNotes()
     })()
@@ -204,14 +267,14 @@ export default function BoardPage() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [guestReady, guestMode])
 
   /* ---------- position / z-order ---------- */
   const persistPosition = useCallback((id: string, position: { x: number; y: number; rotation: number; z_index: number }) => {
-    updateNotePosition(id, position).catch((error) => {
+    notesApi.updateNotePosition(id, position).catch((error) => {
       console.error(`Failed to persist position for note ${id}:`, error)
     })
-  }, [])
+  }, [notesApi])
 
   // createNote/createAudioNote already return the freshly-inserted row
   // (via .select().single()) — merging it straight into local state avoids
@@ -235,9 +298,12 @@ export default function BoardPage() {
       setNotes((prev) => [enriched, ...prev])
       setWidths((prev) => (row.id in prev ? prev : { ...prev, [row.id]: SPACE.noteW }))
       persistPosition(row.id, position)
-      cacheNote({ ...row, position }).catch(() => {})
+      // Guest notes are already written to their IndexedDB store by
+      // guestNotesApi.createNote itself — this cache is only for the
+      // authenticated read-through-Supabase path.
+      if (!guestMode) cacheNote({ ...row, position }).catch(() => {})
     },
-    [templates, zTop, loadNotes, persistPosition]
+    [templates, zTop, loadNotes, persistPosition, guestMode]
   )
 
   // Note on the pattern below: persistPosition (and every position-mutating
@@ -325,8 +391,8 @@ export default function BoardPage() {
   /* ---------- pin / archive / duplicate / delete ---------- */
   const applyFlags = useCallback((id: string, patch: { pinned?: boolean; archived?: boolean }) => {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)))
-    updateNoteFlags(id, patch).catch((err) => console.error('Failed to update note flags:', err))
-  }, [])
+    notesApi.updateNoteFlags(id, patch).catch((err) => console.error('Failed to update note flags:', err))
+  }, [notesApi])
 
   const togglePin = useCallback(
     (note: BoardNote) => {
@@ -349,7 +415,7 @@ export default function BoardPage() {
   const handleDuplicate = useCallback(
     async (note: BoardNote) => {
       try {
-        await duplicateNote(note.id)
+        await notesApi.duplicateNote(note.id)
         await loadNotes()
         showToast('Note duplicated')
       } catch (err) {
@@ -357,7 +423,7 @@ export default function BoardPage() {
         showToast('Could not duplicate that note')
       }
     },
-    [loadNotes, showToast]
+    [loadNotes, showToast, notesApi]
   )
 
   const handleDeleteConfirmed = useCallback(async () => {
@@ -365,7 +431,7 @@ export default function BoardPage() {
     const id = confirmId
     setConfirmId(null)
     try {
-      await deleteNote(id)
+      await notesApi.deleteNote(id)
       setNotes((prev) => prev.filter((n) => n.id !== id))
       if (openId === id) {
         setOpenId(null)
@@ -376,7 +442,7 @@ export default function BoardPage() {
       console.error('Failed to delete note:', err)
       showToast('Could not delete that note')
     }
-  }, [confirmId, openId, showToast])
+  }, [confirmId, openId, showToast, notesApi])
 
   /* ---------- collapse / width (session-local) ---------- */
   const toggleCollapse = useCallback(
@@ -515,11 +581,11 @@ export default function BoardPage() {
         action_items: (n.action_items || []).map((a) => (a.id === id ? { ...a, status: done ? 'done' : 'pending' } : a))
       }))
     )
-    toggleActionItem(id, done).catch((err) => {
+    notesApi.toggleActionItem(id, done).catch((err) => {
       console.error('Failed to toggle action item:', err)
       loadNotes()
     })
-  }, [loadNotes])
+  }, [loadNotes, notesApi])
 
   const handleConfirmTag = useCallback((id: string) => {
     setNotes((prev) =>
@@ -528,33 +594,33 @@ export default function BoardPage() {
         note_tags: (n.note_tags || []).map((t) => (t.id === id ? { ...t, status: 'confirmed' } : t))
       }))
     )
-    confirmTag(id).catch((err) => {
+    notesApi.confirmTag(id).catch((err) => {
       console.error('Failed to confirm tag:', err)
       loadNotes()
     })
-  }, [loadNotes])
+  }, [loadNotes, notesApi])
 
   const handleRejectTag = useCallback((id: string) => {
     setNotes((prev) => prev.map((n) => ({ ...n, note_tags: (n.note_tags || []).filter((t) => t.id !== id) })))
-    rejectTag(id).catch((err) => {
+    notesApi.rejectTag(id).catch((err) => {
       console.error('Failed to reject tag:', err)
       loadNotes()
     })
-  }, [loadNotes])
+  }, [loadNotes, notesApi])
 
   /* ---------- editing: title, raw text, structured fields ---------- */
   const handleEditTitle = useCallback((id: string, title: string) => {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)))
-    updateNoteTitle(id, title).catch((err) => {
+    notesApi.updateNoteTitle(id, title).catch((err) => {
       console.error('Failed to update note title:', err)
       loadNotes()
     })
-  }, [loadNotes])
+  }, [loadNotes, notesApi])
 
   const handleEditRawText = useCallback(
     async (id: string, rawText: string) => {
       try {
-        await updateNoteRawText(id, rawText)
+        await notesApi.updateNoteRawText(id, rawText)
         setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, raw_text: rawText } : n)))
         showToast('Raw capture updated')
       } catch (err) {
@@ -562,7 +628,7 @@ export default function BoardPage() {
         showToast('Could not update raw capture')
       }
     },
-    [showToast]
+    [showToast, notesApi]
   )
 
   // Saves an edited structured field set as a NEW note_versions row (never
@@ -571,7 +637,7 @@ export default function BoardPage() {
   const handleSaveEditedFields = useCallback(
     async (id: string, templateId: string | null, body: Record<string, unknown>) => {
       try {
-        await saveEditedNoteVersion(id, templateId, body)
+        await notesApi.saveEditedNoteVersion(id, templateId, body)
         await loadNotes()
         showToast('Note updated')
       } catch (err) {
@@ -579,7 +645,7 @@ export default function BoardPage() {
         showToast('Could not save changes')
       }
     },
-    [loadNotes, showToast]
+    [loadNotes, showToast, notesApi]
   )
 
   /* ---------- export ---------- */
@@ -742,6 +808,8 @@ export default function BoardPage() {
         boardTheme={boardTheme}
         onBoardThemeChange={setBoardTheme}
         onToggleRail={() => setMobileRailOpen((o) => !o)}
+        guestMode={guestMode}
+        onExitGuest={exitGuest}
       />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -795,7 +863,7 @@ export default function BoardPage() {
         />
       </div>
 
-      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={handleNoteCreated} templates={templates} />
+      <CaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} onCreated={handleNoteCreated} templates={templates} guestMode={guestMode} />
 
       <Drawer
         note={openNoteObj}

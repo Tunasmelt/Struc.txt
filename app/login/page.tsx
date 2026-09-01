@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Appearance, applyAppearance, getStoredAppearance, storeAppearance } from '@/lib/appearance'
 import AppearanceToggle from '@/components/AppearanceToggle'
+import { enableGuestMode, exitGuestMode } from '@/lib/guestMode'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +117,10 @@ function LoginPageInner() {
       if (screen === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
+        // A real account takes over from here — a lingering guest cookie
+        // would be harmless (middleware only consults it when there's no
+        // user) but there's no reason to leave it hanging around either.
+        exitGuestMode()
         window.location.href = '/'
         return
       }
@@ -158,6 +163,11 @@ function LoginPageInner() {
   }
 
   const isLogin = screen === 'login'
+
+  const continueAsGuest = () => {
+    enableGuestMode()
+    window.location.href = '/board'
+  }
 
   return (
     <div
@@ -321,6 +331,22 @@ function LoginPageInner() {
                   {isLogin ? 'Create an account' : 'Log in'}
                 </button>
               </p>
+
+              <button
+                type="button"
+                onClick={continueAsGuest}
+                className="mt-3 block w-full text-center"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11.5,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  color: 'var(--muted)',
+                }}
+                title="Notes stay on this device only — nothing is saved to an account, and AI restructuring and audio recording aren't available."
+              >
+                Continue as guest →
+              </button>
 
               {!isLogin && (
                 <p

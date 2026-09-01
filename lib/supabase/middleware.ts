@@ -34,8 +34,17 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Guest mode (see lib/guestMode.ts) trades auth for a plain cookie set by
+  // the "Continue as guest" button on /login — it lets an unauthenticated
+  // visitor onto /board with an entirely local, IndexedDB-only note store
+  // (lib/guestNotes.ts) that never touches Supabase. /templates stays
+  // login-only: guest mode ships a hardcoded preset list precisely so it
+  // never needs a DB read at all, and template management is a DB-backed
+  // feature guest mode doesn't offer.
+  const isGuest = request.cookies.get('nf_guest')?.value === '1'
   const isProtected = PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p))
-  if (!user && isProtected) {
+  const guestExempt = isGuest && request.nextUrl.pathname.startsWith('/board')
+  if (!user && isProtected && !guestExempt) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''

@@ -22,6 +22,8 @@ interface TopbarProps {
   onToggleHelp: () => void
   onExport: (fmt: 'image' | 'md' | 'txt' | 'pdf') => void
   onToggleRail: () => void
+  guestMode: boolean
+  onExitGuest: () => void
 }
 
 const btnBase = {
@@ -54,7 +56,9 @@ export default function Topbar({
   onRestore,
   onToggleHelp,
   onExport,
-  onToggleRail
+  onToggleRail,
+  guestMode,
+  onExitGuest
 }: TopbarProps) {
   const [exportOpen, setExportOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -245,12 +249,38 @@ export default function Topbar({
       <div className="hidden md:flex items-center gap-3.5 flex-none">
         {/* Log out — was missing entirely: nothing anywhere in the app called
             the existing /auth/logout route handler, so there was no way to
-            sign out or leave the board short of clearing cookies by hand. */}
-        <form action="/auth/logout" method="post" className="flex-none">
-          <button type="submit" title="Log out" className="nf-btn px-3 py-1.5 text-sm rounded" style={btnBase}>
-            Log out
-          </button>
-        </form>
+            sign out or leave the board short of clearing cookies by hand.
+            A guest has no Supabase session for that route to touch, so
+            guest mode gets its own exit (clears the guest cookie only —
+            local notes stay put in case they come back). */}
+        {guestMode ? (
+          <span className="flex items-center gap-2">
+            <span
+              title="Notes on this board are stored only in this browser and are never synced to an account."
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                color: 'var(--brass-text)',
+                border: '1px solid var(--brass)',
+                borderRadius: 99,
+                padding: '3px 9px'
+              }}
+            >
+              Guest
+            </span>
+            <button type="button" onClick={onExitGuest} title="Exit guest mode" className="nf-btn px-3 py-1.5 text-sm rounded" style={btnBase}>
+              Sign in
+            </button>
+          </span>
+        ) : (
+          <form action="/auth/logout" method="post" className="flex-none">
+            <button type="submit" title="Log out" className="nf-btn px-3 py-1.5 text-sm rounded" style={btnBase}>
+              Log out
+            </button>
+          </form>
+        )}
 
         {/* Help */}
         <button
@@ -427,11 +457,22 @@ export default function Topbar({
 
             <div style={{ height: 1, background: 'var(--chrome-line)' }} />
 
-            <form action="/auth/logout" method="post">
-              <button type="submit" className="nf-ctx-item" style={{ width: '100%', textAlign: 'left', padding: '7px 4px', fontSize: 13, color: 'var(--danger-fg)' }}>
-                Log out
+            {guestMode ? (
+              <button
+                type="button"
+                onClick={onExitGuest}
+                className="nf-ctx-item"
+                style={{ width: '100%', textAlign: 'left', padding: '7px 4px', fontSize: 13, color: 'var(--danger-fg)' }}
+              >
+                Sign in (exit guest mode)
               </button>
-            </form>
+            ) : (
+              <form action="/auth/logout" method="post">
+                <button type="submit" className="nf-ctx-item" style={{ width: '100%', textAlign: 'left', padding: '7px 4px', fontSize: 13, color: 'var(--danger-fg)' }}>
+                  Log out
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>

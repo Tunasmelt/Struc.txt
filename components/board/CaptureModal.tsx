@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createNote } from '@/app/actions/notes'
 import { createAudioNote } from '@/app/actions/audio'
+import { createNote as createGuestNote } from '@/lib/guestNotes'
 import { createClient } from '@/lib/supabase/client'
 import { ResolvedTemplate } from './types'
 
@@ -11,6 +12,11 @@ interface CaptureModalProps {
   onClose: () => void
   onCreated: (created?: unknown) => void
   templates: ResolvedTemplate[]
+  // Guest mode has no server to restructure with (no exposed API key) and no
+  // Storage bucket to upload a recording to — so it drops straight to a
+  // save-as-is text capture, no Record tab, no restructure option. See
+  // lib/guestNotes.ts for what guest mode does support.
+  guestMode?: boolean
 }
 
 type CaptureMode = 'record' | 'paste'
@@ -49,7 +55,7 @@ function pickAudioMimeType(): string {
   return ''
 }
 
-export default function CaptureModal({ open, onClose, onCreated, templates }: CaptureModalProps) {
+export default function CaptureModal({ open, onClose, onCreated, templates, guestMode = false }: CaptureModalProps) {
   const [mode, setMode] = useState<CaptureMode>('paste')
   const [raw, setRaw] = useState('')
   const [title, setTitle] = useState('')
@@ -227,7 +233,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
     setWorking(true)
     setError(null)
     try {
-      const created = await createNote(raw, templateId || null, title || null, skipRestructure)
+      const created = guestMode
+        ? await createGuestNote(raw, templateId || null, title || null)
+        : await createNote(raw, templateId || null, title || null, skipRestructure)
       setRaw('')
       setTitle('')
       onCreated(created)
@@ -290,14 +298,16 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
         </header>
 
         <div className="p-5">
-          <div role="group" aria-label="Capture method" className="mb-3.5 flex gap-1.5">
-            <button onClick={() => setMode('record')} style={tabStyle(mode === 'record')}>
-              Record
-            </button>
-            <button onClick={() => setMode('paste')} style={tabStyle(mode === 'paste')}>
-              Paste
-            </button>
-          </div>
+          {!guestMode && (
+            <div role="group" aria-label="Capture method" className="mb-3.5 flex gap-1.5">
+              <button onClick={() => setMode('record')} style={tabStyle(mode === 'record')}>
+                Record
+              </button>
+              <button onClick={() => setMode('paste')} style={tabStyle(mode === 'paste')}>
+                Paste
+              </button>
+            </div>
+          )}
 
           <label
             className="mb-1.5 block text-[10.5px] uppercase"
@@ -466,7 +476,9 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
               className="mr-auto text-[10.5px]"
               style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '.05em' }}
             >
-              {mode === 'record'
+              {guestMode
+                ? 'Guest mode — saved on this device only, no AI restructuring'
+                : mode === 'record'
                 ? `Whisper transcribes after you stop${restructureAfterRecord ? ' · then Groq restructures' : ' · saved as-is unless you check restructure'}`
                 : 'Groq for restructuring · falls back to Gemini if it errors'}
             </span>
@@ -485,16 +497,20 @@ export default function CaptureModal({ open, onClose, onCreated, templates }: Ca
                   — Save is the primary button. It used to be the reverse
                   (Restructure was the only prominent option), which forced
                   every capture through the AI pipeline whether you wanted
-                  that or not. */}
-              <button
-                onClick={() => handleRestructure(false)}
-                disabled={working || !raw.trim()}
-                title="Restructure with AI after saving"
-                className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
-                style={{ border: '1px solid var(--chrome-line)', background: 'var(--chrome-2)', color: 'var(--chalk)' }}
-              >
-                Restructure instead
-              </button>
+                  that or not. Not offered at all in guest mode — there's no
+                  server-side AI call a guest capture can reach without an
+                  account. */}
+              {!guestMode && (
+                <button
+                  onClick={() => handleRestructure(false)}
+                  disabled={working || !raw.trim()}
+                  title="Restructure with AI after saving"
+                  className="rounded-lg px-[13px] py-2 text-sm font-semibold disabled:opacity-50"
+                  style={{ border: '1px solid var(--chrome-line)', background: 'var(--chrome-2)', color: 'var(--chalk)' }}
+                >
+                  Restructure instead
+                </button>
+              )}
               <button
                 onClick={() => handleRestructure(true)}
                 disabled={working || !raw.trim()}
