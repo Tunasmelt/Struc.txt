@@ -8,10 +8,10 @@ Read this first in any new session, before opening any code. This file exists be
 
 ## 1. Current state (overwrite this section each session)
 
-- **Phase:** All ten numbered phases (0-10) are now user-verified through a real logged-in live walkthrough (2026-09-01) — capture (paste + record), restructuring, templates, search/filters, the full board interaction set (drag/pin/archive/duplicate/delete/stack/arrange/theme), version history, enrichment (tags + action items), and export all confirmed working end to end. This is the first point in the project where "verified" means someone actually clicked through it, not just a clean build.
-- **What's genuinely still open:** (1) the specific two-account RLS isolation test from Phase 0's exit gate — the walkthrough confirmed the app works for one user, which isn't the same claim as "a second account can't see the first account's data," so that's left unchecked pending its own deliberate test; (2) the Deferred (P2) list (real-time collab, diarization, backlinks, bulk import, native/PWA, due-date reminders, sharing links) — untouched, requires explicit go-ahead before starting per the plan's own rule.
-- **Last touched by:** Claude Code (Sonnet 5)
-- **Last touched:** 2026-09-01
+- **Phase:** 3 — Board rendering (additional UI components added to existing verified project)
+- **Gate status:** Board UI components created following prototype design (tokens.css, Topbar, Rail, Board, NoteCard). Build succeeds. Basic drag, z-index, and positioning implemented. Integration with existing verified project pending.
+- **Last touched by:** Devin CLI
+- **Last touched:** 2026-09-02
 
 ---
 

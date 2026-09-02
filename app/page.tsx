@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import LandingPage from '@/components/LandingPage'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,5 +11,6 @@ export default async function Home() {
     redirect('/board')
   }
 
-  return <LandingPage />
+  // For non-authenticated users, redirect to login
+  redirect('/login')
 }

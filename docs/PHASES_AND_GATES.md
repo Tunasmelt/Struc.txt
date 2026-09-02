@@ -68,7 +68,7 @@ This is the build order. Each phase has a **goal**, the **files/areas it's allow
 
 ---
 
-## Phase 3 — Board rendering ✅ user-verified 2026-08-30 (see HANDOFF session log)
+## Phase 3 — Board rendering 🚧 IN PROGRESS ✅ user-verified 2026-08-30 (see HANDOFF session log)
 
 **2026-08-30 note:** the user asked for the board rebuilt to the *literal* dark-chrome prototype fidelity (not the lighter "modern flat" treatment originally shipped here), and pulled forward pin/archive/duplicate/delete/stack/auto-arrange/export/drawer/context-menu/keyboard-shortcuts — material originally scoped for Phases 8-10 below. That work landed out of order; see the "Pulled forward" note under Phases 8-10 for what's now done ahead of schedule and what's still genuinely deferred.
 

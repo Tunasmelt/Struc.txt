@@ -1,16 +1,24 @@
 {
   "name": "struc.txt",
   "version": "1.0.0",
-  "description": "",
+  "description": "Turn messy input into structured notes on a corkboard - Voice-first note-taking with AI restructuring and template-driven organization",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
-  "keywords": [],
+  "keywords": [
+    "note-taking",
+    "ai",
+    "voice-recognition",
+    "corkboard",
+    "templates",
+    "supabase",
+    "nextjs"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@google/genai": "^2.19.0",
     "@supabase/ssr": "^0.12.5",
