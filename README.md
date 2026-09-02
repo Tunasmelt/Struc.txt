@@ -53,7 +53,7 @@ NoteFlow is a voice-first note-taking application that transforms rough input â€
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Tunasmelt/Struc.txt.git
    cd struc.txt
    ```
 
